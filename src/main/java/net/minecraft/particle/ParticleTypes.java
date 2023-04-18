@@ -1,0 +1,224 @@
+package net.minecraft.particle;
+
+import com.mojang.serialization.Codec;
+import java.util.function.Function;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+
+public class ParticleTypes {
+   public static final DefaultParticleType AMBIENT_ENTITY_EFFECT = register("ambient_entity_effect", false);
+   public static final DefaultParticleType ANGRY_VILLAGER = register("angry_villager", false);
+   public static final ParticleType BLOCK;
+   public static final ParticleType BLOCK_MARKER;
+   public static final DefaultParticleType BUBBLE;
+   public static final DefaultParticleType CLOUD;
+   public static final DefaultParticleType CRIT;
+   public static final DefaultParticleType DAMAGE_INDICATOR;
+   public static final DefaultParticleType DRAGON_BREATH;
+   public static final DefaultParticleType DRIPPING_LAVA;
+   public static final DefaultParticleType FALLING_LAVA;
+   public static final DefaultParticleType LANDING_LAVA;
+   public static final DefaultParticleType DRIPPING_WATER;
+   public static final DefaultParticleType FALLING_WATER;
+   public static final ParticleType DUST;
+   public static final ParticleType DUST_COLOR_TRANSITION;
+   public static final DefaultParticleType EFFECT;
+   public static final DefaultParticleType ELDER_GUARDIAN;
+   public static final DefaultParticleType ENCHANTED_HIT;
+   public static final DefaultParticleType ENCHANT;
+   public static final DefaultParticleType END_ROD;
+   public static final DefaultParticleType ENTITY_EFFECT;
+   public static final DefaultParticleType EXPLOSION_EMITTER;
+   public static final DefaultParticleType EXPLOSION;
+   public static final DefaultParticleType SONIC_BOOM;
+   public static final ParticleType FALLING_DUST;
+   public static final DefaultParticleType FIREWORK;
+   public static final DefaultParticleType FISHING;
+   public static final DefaultParticleType FLAME;
+   public static final DefaultParticleType CHERRY_LEAVES;
+   public static final DefaultParticleType SCULK_SOUL;
+   public static final ParticleType SCULK_CHARGE;
+   public static final DefaultParticleType SCULK_CHARGE_POP;
+   public static final DefaultParticleType SOUL_FIRE_FLAME;
+   public static final DefaultParticleType SOUL;
+   public static final DefaultParticleType FLASH;
+   public static final DefaultParticleType HAPPY_VILLAGER;
+   public static final DefaultParticleType COMPOSTER;
+   public static final DefaultParticleType HEART;
+   public static final DefaultParticleType INSTANT_EFFECT;
+   public static final ParticleType ITEM;
+   public static final ParticleType VIBRATION;
+   public static final DefaultParticleType ITEM_SLIME;
+   public static final DefaultParticleType ITEM_SNOWBALL;
+   public static final DefaultParticleType LARGE_SMOKE;
+   public static final DefaultParticleType LAVA;
+   public static final DefaultParticleType MYCELIUM;
+   public static final DefaultParticleType NOTE;
+   public static final DefaultParticleType POOF;
+   public static final DefaultParticleType PORTAL;
+   public static final DefaultParticleType RAIN;
+   public static final DefaultParticleType SMOKE;
+   public static final DefaultParticleType SNEEZE;
+   public static final DefaultParticleType SPIT;
+   public static final DefaultParticleType SQUID_INK;
+   public static final DefaultParticleType SWEEP_ATTACK;
+   public static final DefaultParticleType TOTEM_OF_UNDYING;
+   public static final DefaultParticleType UNDERWATER;
+   public static final DefaultParticleType SPLASH;
+   public static final DefaultParticleType WITCH;
+   public static final DefaultParticleType BUBBLE_POP;
+   public static final DefaultParticleType CURRENT_DOWN;
+   public static final DefaultParticleType BUBBLE_COLUMN_UP;
+   public static final DefaultParticleType NAUTILUS;
+   public static final DefaultParticleType DOLPHIN;
+   public static final DefaultParticleType CAMPFIRE_COSY_SMOKE;
+   public static final DefaultParticleType CAMPFIRE_SIGNAL_SMOKE;
+   public static final DefaultParticleType DRIPPING_HONEY;
+   public static final DefaultParticleType FALLING_HONEY;
+   public static final DefaultParticleType LANDING_HONEY;
+   public static final DefaultParticleType FALLING_NECTAR;
+   public static final DefaultParticleType FALLING_SPORE_BLOSSOM;
+   public static final DefaultParticleType ASH;
+   public static final DefaultParticleType CRIMSON_SPORE;
+   public static final DefaultParticleType WARPED_SPORE;
+   public static final DefaultParticleType SPORE_BLOSSOM_AIR;
+   public static final DefaultParticleType DRIPPING_OBSIDIAN_TEAR;
+   public static final DefaultParticleType FALLING_OBSIDIAN_TEAR;
+   public static final DefaultParticleType LANDING_OBSIDIAN_TEAR;
+   public static final DefaultParticleType REVERSE_PORTAL;
+   public static final DefaultParticleType WHITE_ASH;
+   public static final DefaultParticleType SMALL_FLAME;
+   public static final DefaultParticleType SNOWFLAKE;
+   public static final DefaultParticleType DRIPPING_DRIPSTONE_LAVA;
+   public static final DefaultParticleType FALLING_DRIPSTONE_LAVA;
+   public static final DefaultParticleType DRIPPING_DRIPSTONE_WATER;
+   public static final DefaultParticleType FALLING_DRIPSTONE_WATER;
+   public static final DefaultParticleType GLOW_SQUID_INK;
+   public static final DefaultParticleType GLOW;
+   public static final DefaultParticleType WAX_ON;
+   public static final DefaultParticleType WAX_OFF;
+   public static final DefaultParticleType ELECTRIC_SPARK;
+   public static final DefaultParticleType SCRAPE;
+   public static final ParticleType SHRIEK;
+   public static final DefaultParticleType EGG_CRACK;
+   public static final Codec TYPE_CODEC;
+
+   private static DefaultParticleType register(String name, boolean alwaysShow) {
+      return (DefaultParticleType)Registry.register(Registries.PARTICLE_TYPE, (String)name, new DefaultParticleType(alwaysShow));
+   }
+
+   private static ParticleType register(String name, boolean alwaysShow, ParticleEffect.Factory factory, final Function codecGetter) {
+      return (ParticleType)Registry.register(Registries.PARTICLE_TYPE, (String)name, new ParticleType(alwaysShow, factory) {
+         public Codec getCodec() {
+            return (Codec)codecGetter.apply(this);
+         }
+      });
+   }
+
+   static {
+      BLOCK = register("block", false, BlockStateParticleEffect.PARAMETERS_FACTORY, BlockStateParticleEffect::createCodec);
+      BLOCK_MARKER = register("block_marker", false, BlockStateParticleEffect.PARAMETERS_FACTORY, BlockStateParticleEffect::createCodec);
+      BUBBLE = register("bubble", false);
+      CLOUD = register("cloud", false);
+      CRIT = register("crit", false);
+      DAMAGE_INDICATOR = register("damage_indicator", true);
+      DRAGON_BREATH = register("dragon_breath", false);
+      DRIPPING_LAVA = register("dripping_lava", false);
+      FALLING_LAVA = register("falling_lava", false);
+      LANDING_LAVA = register("landing_lava", false);
+      DRIPPING_WATER = register("dripping_water", false);
+      FALLING_WATER = register("falling_water", false);
+      DUST = register("dust", false, DustParticleEffect.PARAMETERS_FACTORY, (arg) -> {
+         return DustParticleEffect.CODEC;
+      });
+      DUST_COLOR_TRANSITION = register("dust_color_transition", false, DustColorTransitionParticleEffect.FACTORY, (arg) -> {
+         return DustColorTransitionParticleEffect.CODEC;
+      });
+      EFFECT = register("effect", false);
+      ELDER_GUARDIAN = register("elder_guardian", true);
+      ENCHANTED_HIT = register("enchanted_hit", false);
+      ENCHANT = register("enchant", false);
+      END_ROD = register("end_rod", false);
+      ENTITY_EFFECT = register("entity_effect", false);
+      EXPLOSION_EMITTER = register("explosion_emitter", true);
+      EXPLOSION = register("explosion", true);
+      SONIC_BOOM = register("sonic_boom", true);
+      FALLING_DUST = register("falling_dust", false, BlockStateParticleEffect.PARAMETERS_FACTORY, BlockStateParticleEffect::createCodec);
+      FIREWORK = register("firework", false);
+      FISHING = register("fishing", false);
+      FLAME = register("flame", false);
+      CHERRY_LEAVES = register("cherry_leaves", false);
+      SCULK_SOUL = register("sculk_soul", false);
+      SCULK_CHARGE = register("sculk_charge", true, SculkChargeParticleEffect.FACTORY, (arg) -> {
+         return SculkChargeParticleEffect.CODEC;
+      });
+      SCULK_CHARGE_POP = register("sculk_charge_pop", true);
+      SOUL_FIRE_FLAME = register("soul_fire_flame", false);
+      SOUL = register("soul", false);
+      FLASH = register("flash", false);
+      HAPPY_VILLAGER = register("happy_villager", false);
+      COMPOSTER = register("composter", false);
+      HEART = register("heart", false);
+      INSTANT_EFFECT = register("instant_effect", false);
+      ITEM = register("item", false, ItemStackParticleEffect.PARAMETERS_FACTORY, ItemStackParticleEffect::createCodec);
+      VIBRATION = register("vibration", true, VibrationParticleEffect.PARAMETERS_FACTORY, (arg) -> {
+         return VibrationParticleEffect.CODEC;
+      });
+      ITEM_SLIME = register("item_slime", false);
+      ITEM_SNOWBALL = register("item_snowball", false);
+      LARGE_SMOKE = register("large_smoke", false);
+      LAVA = register("lava", false);
+      MYCELIUM = register("mycelium", false);
+      NOTE = register("note", false);
+      POOF = register("poof", true);
+      PORTAL = register("portal", false);
+      RAIN = register("rain", false);
+      SMOKE = register("smoke", false);
+      SNEEZE = register("sneeze", false);
+      SPIT = register("spit", true);
+      SQUID_INK = register("squid_ink", true);
+      SWEEP_ATTACK = register("sweep_attack", true);
+      TOTEM_OF_UNDYING = register("totem_of_undying", false);
+      UNDERWATER = register("underwater", false);
+      SPLASH = register("splash", false);
+      WITCH = register("witch", false);
+      BUBBLE_POP = register("bubble_pop", false);
+      CURRENT_DOWN = register("current_down", false);
+      BUBBLE_COLUMN_UP = register("bubble_column_up", false);
+      NAUTILUS = register("nautilus", false);
+      DOLPHIN = register("dolphin", false);
+      CAMPFIRE_COSY_SMOKE = register("campfire_cosy_smoke", true);
+      CAMPFIRE_SIGNAL_SMOKE = register("campfire_signal_smoke", true);
+      DRIPPING_HONEY = register("dripping_honey", false);
+      FALLING_HONEY = register("falling_honey", false);
+      LANDING_HONEY = register("landing_honey", false);
+      FALLING_NECTAR = register("falling_nectar", false);
+      FALLING_SPORE_BLOSSOM = register("falling_spore_blossom", false);
+      ASH = register("ash", false);
+      CRIMSON_SPORE = register("crimson_spore", false);
+      WARPED_SPORE = register("warped_spore", false);
+      SPORE_BLOSSOM_AIR = register("spore_blossom_air", false);
+      DRIPPING_OBSIDIAN_TEAR = register("dripping_obsidian_tear", false);
+      FALLING_OBSIDIAN_TEAR = register("falling_obsidian_tear", false);
+      LANDING_OBSIDIAN_TEAR = register("landing_obsidian_tear", false);
+      REVERSE_PORTAL = register("reverse_portal", false);
+      WHITE_ASH = register("white_ash", false);
+      SMALL_FLAME = register("small_flame", false);
+      SNOWFLAKE = register("snowflake", false);
+      DRIPPING_DRIPSTONE_LAVA = register("dripping_dripstone_lava", false);
+      FALLING_DRIPSTONE_LAVA = register("falling_dripstone_lava", false);
+      DRIPPING_DRIPSTONE_WATER = register("dripping_dripstone_water", false);
+      FALLING_DRIPSTONE_WATER = register("falling_dripstone_water", false);
+      GLOW_SQUID_INK = register("glow_squid_ink", true);
+      GLOW = register("glow", true);
+      WAX_ON = register("wax_on", true);
+      WAX_OFF = register("wax_off", true);
+      ELECTRIC_SPARK = register("electric_spark", true);
+      SCRAPE = register("scrape", true);
+      SHRIEK = register("shriek", false, ShriekParticleEffect.FACTORY, (type) -> {
+         return ShriekParticleEffect.CODEC;
+      });
+      EGG_CRACK = register("egg_crack", false);
+      TYPE_CODEC = Registries.PARTICLE_TYPE.getCodec().dispatch("type", ParticleEffect::getType, ParticleType::getCodec);
+   }
+}
