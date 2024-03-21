@@ -1,60 +1,46 @@
 package net.minecraft.client.particle;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.particle.SculkChargeParticleEffect;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.SculkChargeParticleOptions;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
-public class SculkChargeParticle extends SpriteBillboardParticle {
-   private final SpriteProvider spriteProvider;
+@OnlyIn(Dist.CLIENT)
+public class SculkChargeParticle extends TextureSheetParticle {
+   private final SpriteSet sprites;
 
-   SculkChargeParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, SpriteProvider spriteProvider) {
-      super(world, x, y, z, velocityX, velocityY, velocityZ);
-      this.velocityMultiplier = 0.96F;
-      this.spriteProvider = spriteProvider;
+   SculkChargeParticle(ClientLevel p_233892_, double p_233893_, double p_233894_, double p_233895_, double p_233896_, double p_233897_, double p_233898_, SpriteSet p_233899_) {
+      super(p_233892_, p_233893_, p_233894_, p_233895_, p_233896_, p_233897_, p_233898_);
+      this.friction = 0.96F;
+      this.sprites = p_233899_;
       this.scale(1.5F);
-      this.collidesWithWorld = false;
-      this.setSpriteForAge(spriteProvider);
+      this.hasPhysics = false;
+      this.setSpriteFromAge(p_233899_);
    }
 
-   public int getBrightness(float tint) {
+   public int getLightColor(float p_233902_) {
       return 240;
    }
 
-   public ParticleTextureSheet getType() {
-      return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
    }
 
    public void tick() {
       super.tick();
-      this.setSpriteForAge(this.spriteProvider);
+      this.setSpriteFromAge(this.sprites);
    }
 
-   @Environment(EnvType.CLIENT)
-   public static record Factory(SpriteProvider spriteProvider) implements ParticleFactory {
-      public Factory(SpriteProvider arg) {
-         this.spriteProvider = arg;
-      }
-
-      public Particle createParticle(SculkChargeParticleEffect arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
-         SculkChargeParticle lv = new SculkChargeParticle(arg2, d, e, f, g, h, i, this.spriteProvider);
-         lv.setAlpha(1.0F);
-         lv.setVelocity(g, h, i);
-         lv.prevAngle = arg.roll();
-         lv.angle = arg.roll();
-         lv.setMaxAge(arg2.random.nextInt(12) + 8);
-         return lv;
-      }
-
-      public SpriteProvider spriteProvider() {
-         return this.spriteProvider;
-      }
-
-      // $FF: synthetic method
-      public Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
-         return this.createParticle((SculkChargeParticleEffect)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+   @OnlyIn(Dist.CLIENT)
+   public static record Provider(SpriteSet sprite) implements ParticleProvider<SculkChargeParticleOptions> {
+      public Particle createParticle(SculkChargeParticleOptions p_233918_, ClientLevel p_233919_, double p_233920_, double p_233921_, double p_233922_, double p_233923_, double p_233924_, double p_233925_) {
+         SculkChargeParticle sculkchargeparticle = new SculkChargeParticle(p_233919_, p_233920_, p_233921_, p_233922_, p_233923_, p_233924_, p_233925_, this.sprite);
+         sculkchargeparticle.setAlpha(1.0F);
+         sculkchargeparticle.setParticleSpeed(p_233923_, p_233924_, p_233925_);
+         sculkchargeparticle.oRoll = p_233918_.roll();
+         sculkchargeparticle.roll = p_233918_.roll();
+         sculkchargeparticle.setLifetime(p_233919_.random.nextInt(12) + 8);
+         return sculkchargeparticle;
       }
    }
 }

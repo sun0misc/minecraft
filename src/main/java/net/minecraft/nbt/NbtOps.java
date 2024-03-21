@@ -14,63 +14,64 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
-public class NbtOps implements DynamicOps {
+public class NbtOps implements DynamicOps<Tag> {
    public static final NbtOps INSTANCE = new NbtOps();
-   private static final String MARKER_KEY = "";
+   private static final String WRAPPER_MARKER = "";
 
    protected NbtOps() {
    }
 
-   public NbtElement empty() {
-      return NbtEnd.INSTANCE;
+   public Tag empty() {
+      return EndTag.INSTANCE;
    }
 
-   public Object convertTo(DynamicOps dynamicOps, NbtElement arg) {
-      switch (arg.getType()) {
+   public <U> U convertTo(DynamicOps<U> p_128980_, Tag p_128981_) {
+      switch (p_128981_.getId()) {
          case 0:
-            return dynamicOps.empty();
+            return p_128980_.empty();
          case 1:
-            return dynamicOps.createByte(((AbstractNbtNumber)arg).byteValue());
+            return p_128980_.createByte(((NumericTag)p_128981_).getAsByte());
          case 2:
-            return dynamicOps.createShort(((AbstractNbtNumber)arg).shortValue());
+            return p_128980_.createShort(((NumericTag)p_128981_).getAsShort());
          case 3:
-            return dynamicOps.createInt(((AbstractNbtNumber)arg).intValue());
+            return p_128980_.createInt(((NumericTag)p_128981_).getAsInt());
          case 4:
-            return dynamicOps.createLong(((AbstractNbtNumber)arg).longValue());
+            return p_128980_.createLong(((NumericTag)p_128981_).getAsLong());
          case 5:
-            return dynamicOps.createFloat(((AbstractNbtNumber)arg).floatValue());
+            return p_128980_.createFloat(((NumericTag)p_128981_).getAsFloat());
          case 6:
-            return dynamicOps.createDouble(((AbstractNbtNumber)arg).doubleValue());
+            return p_128980_.createDouble(((NumericTag)p_128981_).getAsDouble());
          case 7:
-            return dynamicOps.createByteList(ByteBuffer.wrap(((NbtByteArray)arg).getByteArray()));
+            return p_128980_.createByteList(ByteBuffer.wrap(((ByteArrayTag)p_128981_).getAsByteArray()));
          case 8:
-            return dynamicOps.createString(arg.asString());
+            return p_128980_.createString(p_128981_.getAsString());
          case 9:
-            return this.convertList(dynamicOps, arg);
+            return this.convertList(p_128980_, p_128981_);
          case 10:
-            return this.convertMap(dynamicOps, arg);
+            return this.convertMap(p_128980_, p_128981_);
          case 11:
-            return dynamicOps.createIntList(Arrays.stream(((NbtIntArray)arg).getIntArray()));
+            return p_128980_.createIntList(Arrays.stream(((IntArrayTag)p_128981_).getAsIntArray()));
          case 12:
-            return dynamicOps.createLongList(Arrays.stream(((NbtLongArray)arg).getLongArray()));
+            return p_128980_.createLongList(Arrays.stream(((LongArrayTag)p_128981_).getAsLongArray()));
          default:
-            throw new IllegalStateException("Unknown tag type: " + arg);
+            throw new IllegalStateException("Unknown tag type: " + p_128981_);
       }
    }
 
-   public DataResult getNumberValue(NbtElement arg) {
-      if (arg instanceof AbstractNbtNumber lv) {
-         return DataResult.success(lv.numberValue());
+   public DataResult<Number> getNumberValue(Tag p_129030_) {
+      if (p_129030_ instanceof NumericTag numerictag) {
+         return DataResult.success(numerictag.getAsNumber());
       } else {
          return DataResult.error(() -> {
             return "Not a number";
@@ -78,41 +79,41 @@ public class NbtOps implements DynamicOps {
       }
    }
 
-   public NbtElement createNumeric(Number number) {
-      return NbtDouble.of(number.doubleValue());
+   public Tag createNumeric(Number p_128983_) {
+      return DoubleTag.valueOf(p_128983_.doubleValue());
    }
 
-   public NbtElement createByte(byte b) {
-      return NbtByte.of(b);
+   public Tag createByte(byte p_128963_) {
+      return ByteTag.valueOf(p_128963_);
    }
 
-   public NbtElement createShort(short s) {
-      return NbtShort.of(s);
+   public Tag createShort(short p_129048_) {
+      return ShortTag.valueOf(p_129048_);
    }
 
-   public NbtElement createInt(int i) {
-      return NbtInt.of(i);
+   public Tag createInt(int p_128976_) {
+      return IntTag.valueOf(p_128976_);
    }
 
-   public NbtElement createLong(long l) {
-      return NbtLong.of(l);
+   public Tag createLong(long p_128978_) {
+      return LongTag.valueOf(p_128978_);
    }
 
-   public NbtElement createFloat(float f) {
-      return NbtFloat.of(f);
+   public Tag createFloat(float p_128974_) {
+      return FloatTag.valueOf(p_128974_);
    }
 
-   public NbtElement createDouble(double d) {
-      return NbtDouble.of(d);
+   public Tag createDouble(double p_128972_) {
+      return DoubleTag.valueOf(p_128972_);
    }
 
-   public NbtElement createBoolean(boolean bl) {
-      return NbtByte.of(bl);
+   public Tag createBoolean(boolean p_129050_) {
+      return ByteTag.valueOf(p_129050_);
    }
 
-   public DataResult getStringValue(NbtElement arg) {
-      if (arg instanceof NbtString lv) {
-         return DataResult.success(lv.asString());
+   public DataResult<String> getStringValue(Tag p_129061_) {
+      if (p_129061_ instanceof StringTag stringtag) {
+         return DataResult.success(stringtag.getAsString());
       } else {
          return DataResult.error(() -> {
             return "Not a string";
@@ -120,177 +121,165 @@ public class NbtOps implements DynamicOps {
       }
    }
 
-   public NbtElement createString(String string) {
-      return NbtString.of(string);
+   public Tag createString(String p_128985_) {
+      return StringTag.valueOf(p_128985_);
    }
 
-   public DataResult mergeToList(NbtElement arg, NbtElement arg2) {
-      return (DataResult)createMerger(arg).map((merger) -> {
-         return DataResult.success(merger.merge(arg2).getResult());
+   public DataResult<Tag> mergeToList(Tag p_129041_, Tag p_129042_) {
+      return createCollector(p_129041_).map((p_248053_) -> {
+         return DataResult.success(p_248053_.accept(p_129042_).result());
       }).orElseGet(() -> {
          return DataResult.error(() -> {
-            return "mergeToList called with not a list: " + arg;
-         }, arg);
+            return "mergeToList called with not a list: " + p_129041_;
+         }, p_129041_);
       });
    }
 
-   public DataResult mergeToList(NbtElement arg, List list) {
-      return (DataResult)createMerger(arg).map((merger) -> {
-         return DataResult.success(merger.merge((Iterable)list).getResult());
+   public DataResult<Tag> mergeToList(Tag p_129038_, List<Tag> p_129039_) {
+      return createCollector(p_129038_).map((p_248048_) -> {
+         return DataResult.success(p_248048_.acceptAll(p_129039_).result());
       }).orElseGet(() -> {
          return DataResult.error(() -> {
-            return "mergeToList called with not a list: " + arg;
-         }, arg);
+            return "mergeToList called with not a list: " + p_129038_;
+         }, p_129038_);
       });
    }
 
-   public DataResult mergeToMap(NbtElement arg, NbtElement arg2, NbtElement arg3) {
-      if (!(arg instanceof NbtCompound) && !(arg instanceof NbtEnd)) {
+   public DataResult<Tag> mergeToMap(Tag p_129044_, Tag p_129045_, Tag p_129046_) {
+      if (!(p_129044_ instanceof CompoundTag) && !(p_129044_ instanceof EndTag)) {
          return DataResult.error(() -> {
-            return "mergeToMap called with not a map: " + arg;
-         }, arg);
-      } else if (!(arg2 instanceof NbtString)) {
+            return "mergeToMap called with not a map: " + p_129044_;
+         }, p_129044_);
+      } else if (!(p_129045_ instanceof StringTag)) {
          return DataResult.error(() -> {
-            return "key is not a string: " + arg2;
-         }, arg);
+            return "key is not a string: " + p_129045_;
+         }, p_129044_);
       } else {
-         NbtCompound lv = new NbtCompound();
-         if (arg instanceof NbtCompound) {
-            NbtCompound lv2 = (NbtCompound)arg;
-            lv2.getKeys().forEach((key) -> {
-               lv.put(key, lv2.get(key));
+         CompoundTag compoundtag = new CompoundTag();
+         if (p_129044_ instanceof CompoundTag) {
+            CompoundTag compoundtag1 = (CompoundTag)p_129044_;
+            compoundtag1.getAllKeys().forEach((p_129068_) -> {
+               compoundtag.put(p_129068_, compoundtag1.get(p_129068_));
             });
          }
 
-         lv.put(arg2.asString(), arg3);
-         return DataResult.success(lv);
+         compoundtag.put(p_129045_.getAsString(), p_129046_);
+         return DataResult.success(compoundtag);
       }
    }
 
-   public DataResult mergeToMap(NbtElement arg, MapLike mapLike) {
-      if (!(arg instanceof NbtCompound) && !(arg instanceof NbtEnd)) {
+   public DataResult<Tag> mergeToMap(Tag p_129032_, MapLike<Tag> p_129033_) {
+      if (!(p_129032_ instanceof CompoundTag) && !(p_129032_ instanceof EndTag)) {
          return DataResult.error(() -> {
-            return "mergeToMap called with not a map: " + arg;
-         }, arg);
+            return "mergeToMap called with not a map: " + p_129032_;
+         }, p_129032_);
       } else {
-         NbtCompound lv = new NbtCompound();
-         if (arg instanceof NbtCompound) {
-            NbtCompound lv2 = (NbtCompound)arg;
-            lv2.getKeys().forEach((key) -> {
-               lv.put(key, lv2.get(key));
+         CompoundTag compoundtag = new CompoundTag();
+         if (p_129032_ instanceof CompoundTag) {
+            CompoundTag compoundtag1 = (CompoundTag)p_129032_;
+            compoundtag1.getAllKeys().forEach((p_129059_) -> {
+               compoundtag.put(p_129059_, compoundtag1.get(p_129059_));
             });
          }
 
-         List list = Lists.newArrayList();
-         mapLike.entries().forEach((pair) -> {
-            NbtElement lvx = (NbtElement)pair.getFirst();
-            if (!(lvx instanceof NbtString)) {
-               list.add(lvx);
+         List<Tag> list = Lists.newArrayList();
+         p_129033_.entries().forEach((p_128994_) -> {
+            Tag tag = p_128994_.getFirst();
+            if (!(tag instanceof StringTag)) {
+               list.add(tag);
             } else {
-               lv.put(lvx.asString(), (NbtElement)pair.getSecond());
+               compoundtag.put(tag.getAsString(), p_128994_.getSecond());
             }
          });
          return !list.isEmpty() ? DataResult.error(() -> {
             return "some keys are not strings: " + list;
-         }, lv) : DataResult.success(lv);
+         }, compoundtag) : DataResult.success(compoundtag);
       }
    }
 
-   public DataResult getMapValues(NbtElement arg) {
-      if (arg instanceof NbtCompound lv) {
-         return DataResult.success(lv.getKeys().stream().map((key) -> {
-            return Pair.of(this.createString(key), lv.get(key));
+   public DataResult<Stream<Pair<Tag, Tag>>> getMapValues(Tag p_129070_) {
+      if (p_129070_ instanceof CompoundTag compoundtag) {
+         return DataResult.success(compoundtag.getAllKeys().stream().map((p_129021_) -> {
+            return Pair.of(this.createString(p_129021_), compoundtag.get(p_129021_));
          }));
       } else {
          return DataResult.error(() -> {
-            return "Not a map: " + arg;
+            return "Not a map: " + p_129070_;
          });
       }
    }
 
-   public DataResult getMapEntries(NbtElement arg) {
-      if (arg instanceof NbtCompound lv) {
-         return DataResult.success((entryConsumer) -> {
-            lv.getKeys().forEach((key) -> {
-               entryConsumer.accept(this.createString(key), lv.get(key));
+   public DataResult<Consumer<BiConsumer<Tag, Tag>>> getMapEntries(Tag p_129103_) {
+      if (p_129103_ instanceof CompoundTag compoundtag) {
+         return DataResult.success((p_129024_) -> {
+            compoundtag.getAllKeys().forEach((p_178006_) -> {
+               p_129024_.accept(this.createString(p_178006_), compoundtag.get(p_178006_));
             });
          });
       } else {
          return DataResult.error(() -> {
-            return "Not a map: " + arg;
+            return "Not a map: " + p_129103_;
          });
       }
    }
 
-   public DataResult getMap(NbtElement arg) {
-      if (arg instanceof final NbtCompound lv) {
-         return DataResult.success(new MapLike() {
+   public DataResult<MapLike<Tag>> getMap(Tag p_129105_) {
+      if (p_129105_ instanceof final CompoundTag compoundtag) {
+         return DataResult.success(new MapLike<Tag>() {
             @Nullable
-            public NbtElement get(NbtElement arg) {
-               return lv.get(arg.asString());
+            public Tag get(Tag p_129174_) {
+               return compoundtag.get(p_129174_.getAsString());
             }
 
             @Nullable
-            public NbtElement get(String string) {
-               return lv.get(string);
+            public Tag get(String p_129169_) {
+               return compoundtag.get(p_129169_);
             }
 
-            public Stream entries() {
-               return lv.getKeys().stream().map((key) -> {
-                  return Pair.of(NbtOps.this.createString(key), lv.get(key));
+            public Stream<Pair<Tag, Tag>> entries() {
+               return compoundtag.getAllKeys().stream().map((p_129172_) -> {
+                  return Pair.of(NbtOps.this.createString(p_129172_), compoundtag.get(p_129172_));
                });
             }
 
             public String toString() {
-               return "MapLike[" + lv + "]";
-            }
-
-            // $FF: synthetic method
-            @Nullable
-            public Object get(String key) {
-               return this.get(key);
-            }
-
-            // $FF: synthetic method
-            @Nullable
-            public Object get(Object nbt) {
-               return this.get((NbtElement)nbt);
+               return "MapLike[" + compoundtag + "]";
             }
          });
       } else {
          return DataResult.error(() -> {
-            return "Not a map: " + arg;
+            return "Not a map: " + p_129105_;
          });
       }
    }
 
-   public NbtElement createMap(Stream stream) {
-      NbtCompound lv = new NbtCompound();
-      stream.forEach((entry) -> {
-         lv.put(((NbtElement)entry.getFirst()).asString(), (NbtElement)entry.getSecond());
+   public Tag createMap(Stream<Pair<Tag, Tag>> p_129004_) {
+      CompoundTag compoundtag = new CompoundTag();
+      p_129004_.forEach((p_129018_) -> {
+         compoundtag.put(p_129018_.getFirst().getAsString(), p_129018_.getSecond());
       });
-      return lv;
+      return compoundtag;
    }
 
-   private static NbtElement unpackMarker(NbtCompound nbt) {
-      if (nbt.getSize() == 1) {
-         NbtElement lv = nbt.get("");
-         if (lv != null) {
-            return lv;
+   private static Tag tryUnwrap(CompoundTag p_251041_) {
+      if (p_251041_.size() == 1) {
+         Tag tag = p_251041_.get("");
+         if (tag != null) {
+            return tag;
          }
       }
 
-      return nbt;
+      return p_251041_;
    }
 
-   public DataResult getStream(NbtElement arg) {
-      if (arg instanceof NbtList lv) {
-         return lv.getHeldType() == NbtElement.COMPOUND_TYPE ? DataResult.success(lv.stream().map((nbt) -> {
-            return unpackMarker((NbtCompound)nbt);
-         })) : DataResult.success(lv.stream());
-      } else if (arg instanceof AbstractNbtList lv2) {
-         return DataResult.success(lv2.stream().map((nbt) -> {
-            return nbt;
+   public DataResult<Stream<Tag>> getStream(Tag p_129108_) {
+      if (p_129108_ instanceof ListTag listtag) {
+         return listtag.getElementType() == 10 ? DataResult.success(listtag.stream().map((p_248049_) -> {
+            return tryUnwrap((CompoundTag)p_248049_);
+         })) : DataResult.success(listtag.stream());
+      } else if (p_129108_ instanceof CollectionTag<?> collectiontag) {
+         return DataResult.success(collectiontag.stream().map((p_129158_) -> {
+            return p_129158_;
          }));
       } else {
          return DataResult.error(() -> {
@@ -299,79 +288,73 @@ public class NbtOps implements DynamicOps {
       }
    }
 
-   public DataResult getList(NbtElement arg) {
-      if (arg instanceof NbtList lv) {
-         if (lv.getHeldType() == NbtElement.COMPOUND_TYPE) {
-            return DataResult.success((consumer) -> {
-               lv.forEach((nbt) -> {
-                  consumer.accept(unpackMarker((NbtCompound)nbt));
-               });
+   public DataResult<Consumer<Consumer<Tag>>> getList(Tag p_129110_) {
+      if (p_129110_ instanceof ListTag listtag) {
+         return listtag.getElementType() == 10 ? DataResult.success((p_248055_) -> {
+            listtag.forEach((p_248051_) -> {
+               p_248055_.accept(tryUnwrap((CompoundTag)p_248051_));
             });
-         } else {
-            Objects.requireNonNull(lv);
-            return DataResult.success(lv::forEach);
-         }
-      } else if (arg instanceof AbstractNbtList lv2) {
-         Objects.requireNonNull(lv2);
-         return DataResult.success(lv2::forEach);
+         }) : DataResult.success(listtag::forEach);
+      } else if (p_129110_ instanceof CollectionTag<?> collectiontag) {
+         return DataResult.success(collectiontag::forEach);
       } else {
          return DataResult.error(() -> {
-            return "Not a list: " + arg;
+            return "Not a list: " + p_129110_;
          });
       }
    }
 
-   public DataResult getByteBuffer(NbtElement arg) {
-      if (arg instanceof NbtByteArray lv) {
-         return DataResult.success(ByteBuffer.wrap(lv.getByteArray()));
+   public DataResult<ByteBuffer> getByteBuffer(Tag p_129132_) {
+      if (p_129132_ instanceof ByteArrayTag bytearraytag) {
+         return DataResult.success(ByteBuffer.wrap(bytearraytag.getAsByteArray()));
       } else {
-         return super.getByteBuffer(arg);
+         return DynamicOps.super.getByteBuffer(p_129132_);
       }
    }
 
-   public NbtElement createByteList(ByteBuffer byteBuffer) {
-      return new NbtByteArray(DataFixUtils.toArray(byteBuffer));
+   public Tag createByteList(ByteBuffer p_128990_) {
+      return new ByteArrayTag(DataFixUtils.toArray(p_128990_));
    }
 
-   public DataResult getIntStream(NbtElement arg) {
-      if (arg instanceof NbtIntArray lv) {
-         return DataResult.success(Arrays.stream(lv.getIntArray()));
+   public DataResult<IntStream> getIntStream(Tag p_129134_) {
+      if (p_129134_ instanceof IntArrayTag intarraytag) {
+         return DataResult.success(Arrays.stream(intarraytag.getAsIntArray()));
       } else {
-         return super.getIntStream(arg);
+         return DynamicOps.super.getIntStream(p_129134_);
       }
    }
 
-   public NbtElement createIntList(IntStream intStream) {
-      return new NbtIntArray(intStream.toArray());
+   public Tag createIntList(IntStream p_129000_) {
+      return new IntArrayTag(p_129000_.toArray());
    }
 
-   public DataResult getLongStream(NbtElement arg) {
-      if (arg instanceof NbtLongArray lv) {
-         return DataResult.success(Arrays.stream(lv.getLongArray()));
+   public DataResult<LongStream> getLongStream(Tag p_129136_) {
+      if (p_129136_ instanceof LongArrayTag longarraytag) {
+         return DataResult.success(Arrays.stream(longarraytag.getAsLongArray()));
       } else {
-         return super.getLongStream(arg);
+         return DynamicOps.super.getLongStream(p_129136_);
       }
    }
 
-   public NbtElement createLongList(LongStream longStream) {
-      return new NbtLongArray(longStream.toArray());
+   public Tag createLongList(LongStream p_129002_) {
+      return new LongArrayTag(p_129002_.toArray());
    }
 
-   public NbtElement createList(Stream stream) {
-      return NbtOps.BasicMerger.EMPTY.merge(stream).getResult();
+   public Tag createList(Stream<Tag> p_129052_) {
+      return NbtOps.InitialListCollector.INSTANCE.acceptAll(p_129052_).result();
    }
 
-   public NbtElement remove(NbtElement arg, String string) {
-      if (arg instanceof NbtCompound lv) {
-         NbtCompound lv2 = new NbtCompound();
-         lv.getKeys().stream().filter((k) -> {
-            return !Objects.equals(k, string);
-         }).forEach((k) -> {
-            lv2.put(k, lv.get(k));
+   public Tag remove(Tag p_129035_, String p_129036_) {
+      if (p_129035_ instanceof CompoundTag compoundtag) {
+         CompoundTag compoundtag1 = new CompoundTag();
+         compoundtag.getAllKeys().stream().filter((p_128988_) -> {
+            return !Objects.equals(p_128988_, p_129036_);
+         }).forEach((p_129028_) -> {
+            compoundtag1.put(p_129028_, compoundtag.get(p_129028_));
          });
-         return lv2;
+         return compoundtag1;
       } else {
-         return arg;
+         return p_129035_;
       }
    }
 
@@ -379,50 +362,50 @@ public class NbtOps implements DynamicOps {
       return "NBT";
    }
 
-   public RecordBuilder mapBuilder() {
-      return new MapBuilder();
+   public RecordBuilder<Tag> mapBuilder() {
+      return new NbtOps.NbtRecordBuilder();
    }
 
-   private static Optional createMerger(NbtElement nbt) {
-      if (nbt instanceof NbtEnd) {
-         return Optional.of(NbtOps.BasicMerger.EMPTY);
+   private static Optional<NbtOps.ListCollector> createCollector(Tag p_249503_) {
+      if (p_249503_ instanceof EndTag) {
+         return Optional.of(NbtOps.InitialListCollector.INSTANCE);
       } else {
-         if (nbt instanceof AbstractNbtList) {
-            AbstractNbtList lv = (AbstractNbtList)nbt;
-            if (lv.isEmpty()) {
-               return Optional.of(NbtOps.BasicMerger.EMPTY);
+         if (p_249503_ instanceof CollectionTag) {
+            CollectionTag<?> collectiontag = (CollectionTag)p_249503_;
+            if (collectiontag.isEmpty()) {
+               return Optional.of(NbtOps.InitialListCollector.INSTANCE);
             }
 
-            if (lv instanceof NbtList) {
-               NbtList lv2 = (NbtList)lv;
-               Optional var10000;
-               switch (lv2.getHeldType()) {
+            if (collectiontag instanceof ListTag) {
+               ListTag listtag = (ListTag)collectiontag;
+               Optional optional;
+               switch (listtag.getElementType()) {
                   case 0:
-                     var10000 = Optional.of(NbtOps.BasicMerger.EMPTY);
+                     optional = Optional.of(NbtOps.InitialListCollector.INSTANCE);
                      break;
                   case 10:
-                     var10000 = Optional.of(new CompoundListMerger(lv2));
+                     optional = Optional.of(new NbtOps.HeterogenousListCollector(listtag));
                      break;
                   default:
-                     var10000 = Optional.of(new ListMerger(lv2));
+                     optional = Optional.of(new NbtOps.HomogenousListCollector(listtag));
                }
 
-               return var10000;
+               return optional;
             }
 
-            if (lv instanceof NbtByteArray) {
-               NbtByteArray lv3 = (NbtByteArray)lv;
-               return Optional.of(new ByteArrayMerger(lv3.getByteArray()));
+            if (collectiontag instanceof ByteArrayTag) {
+               ByteArrayTag bytearraytag = (ByteArrayTag)collectiontag;
+               return Optional.of(new NbtOps.ByteListCollector(bytearraytag.getAsByteArray()));
             }
 
-            if (lv instanceof NbtIntArray) {
-               NbtIntArray lv4 = (NbtIntArray)lv;
-               return Optional.of(new IntArrayMerger(lv4.getIntArray()));
+            if (collectiontag instanceof IntArrayTag) {
+               IntArrayTag intarraytag = (IntArrayTag)collectiontag;
+               return Optional.of(new NbtOps.IntListCollector(intarraytag.getAsIntArray()));
             }
 
-            if (lv instanceof NbtLongArray) {
-               NbtLongArray lv5 = (NbtLongArray)lv;
-               return Optional.of(new LongArrayMerger(lv5.getLongArray()));
+            if (collectiontag instanceof LongArrayTag) {
+               LongArrayTag longarraytag = (LongArrayTag)collectiontag;
+               return Optional.of(new NbtOps.LongListCollector(longarraytag.getAsLongArray()));
             }
          }
 
@@ -430,413 +413,242 @@ public class NbtOps implements DynamicOps {
       }
    }
 
-   // $FF: synthetic method
-   public Object remove(Object element, String key) {
-      return this.remove((NbtElement)element, key);
-   }
+   static class ByteListCollector implements NbtOps.ListCollector {
+      private final ByteArrayList values = new ByteArrayList();
 
-   // $FF: synthetic method
-   public Object createLongList(LongStream stream) {
-      return this.createLongList(stream);
-   }
+      public ByteListCollector(byte p_249905_) {
+         this.values.add(p_249905_);
+      }
 
-   // $FF: synthetic method
-   public DataResult getLongStream(Object element) {
-      return this.getLongStream((NbtElement)element);
-   }
+      public ByteListCollector(byte[] p_250457_) {
+         this.values.addElements(0, p_250457_);
+      }
 
-   // $FF: synthetic method
-   public Object createIntList(IntStream stream) {
-      return this.createIntList(stream);
-   }
-
-   // $FF: synthetic method
-   public DataResult getIntStream(Object element) {
-      return this.getIntStream((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public Object createByteList(ByteBuffer buf) {
-      return this.createByteList(buf);
-   }
-
-   // $FF: synthetic method
-   public DataResult getByteBuffer(Object element) {
-      return this.getByteBuffer((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public Object createList(Stream stream) {
-      return this.createList(stream);
-   }
-
-   // $FF: synthetic method
-   public DataResult getList(Object element) {
-      return this.getList((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public DataResult getStream(Object element) {
-      return this.getStream((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public DataResult getMap(Object element) {
-      return this.getMap((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public Object createMap(Stream entries) {
-      return this.createMap(entries);
-   }
-
-   // $FF: synthetic method
-   public DataResult getMapEntries(Object element) {
-      return this.getMapEntries((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public DataResult getMapValues(Object element) {
-      return this.getMapValues((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public DataResult mergeToMap(Object element, MapLike map) {
-      return this.mergeToMap((NbtElement)element, map);
-   }
-
-   // $FF: synthetic method
-   public DataResult mergeToMap(Object map, Object key, Object value) {
-      return this.mergeToMap((NbtElement)map, (NbtElement)key, (NbtElement)value);
-   }
-
-   // $FF: synthetic method
-   public DataResult mergeToList(Object list, List values) {
-      return this.mergeToList((NbtElement)list, values);
-   }
-
-   // $FF: synthetic method
-   public DataResult mergeToList(Object list, Object value) {
-      return this.mergeToList((NbtElement)list, (NbtElement)value);
-   }
-
-   // $FF: synthetic method
-   public Object createString(String string) {
-      return this.createString(string);
-   }
-
-   // $FF: synthetic method
-   public DataResult getStringValue(Object element) {
-      return this.getStringValue((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public Object createBoolean(boolean value) {
-      return this.createBoolean(value);
-   }
-
-   // $FF: synthetic method
-   public Object createDouble(double value) {
-      return this.createDouble(value);
-   }
-
-   // $FF: synthetic method
-   public Object createFloat(float value) {
-      return this.createFloat(value);
-   }
-
-   // $FF: synthetic method
-   public Object createLong(long value) {
-      return this.createLong(value);
-   }
-
-   // $FF: synthetic method
-   public Object createInt(int value) {
-      return this.createInt(value);
-   }
-
-   // $FF: synthetic method
-   public Object createShort(short value) {
-      return this.createShort(value);
-   }
-
-   // $FF: synthetic method
-   public Object createByte(byte value) {
-      return this.createByte(value);
-   }
-
-   // $FF: synthetic method
-   public Object createNumeric(Number value) {
-      return this.createNumeric(value);
-   }
-
-   // $FF: synthetic method
-   public DataResult getNumberValue(Object element) {
-      return this.getNumberValue((NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public Object convertTo(DynamicOps ops, Object element) {
-      return this.convertTo(ops, (NbtElement)element);
-   }
-
-   // $FF: synthetic method
-   public Object empty() {
-      return this.empty();
-   }
-
-   private static class BasicMerger implements Merger {
-      public static final BasicMerger EMPTY = new BasicMerger();
-
-      public Merger merge(NbtElement nbt) {
-         if (nbt instanceof NbtCompound lv) {
-            return (new CompoundListMerger()).merge(lv);
-         } else if (nbt instanceof NbtByte lv2) {
-            return new ByteArrayMerger(lv2.byteValue());
-         } else if (nbt instanceof NbtInt lv3) {
-            return new IntArrayMerger(lv3.intValue());
-         } else if (nbt instanceof NbtLong lv4) {
-            return new LongArrayMerger(lv4.longValue());
+      public NbtOps.ListCollector accept(Tag p_250723_) {
+         if (p_250723_ instanceof ByteTag bytetag) {
+            this.values.add(bytetag.getAsByte());
+            return this;
          } else {
-            return new ListMerger(nbt);
+            return (new NbtOps.HeterogenousListCollector(this.values)).accept(p_250723_);
          }
       }
 
-      public NbtElement getResult() {
-         return new NbtList();
+      public Tag result() {
+         return new ByteArrayTag(this.values.toByteArray());
       }
    }
 
-   private interface Merger {
-      Merger merge(NbtElement nbt);
+   static class HeterogenousListCollector implements NbtOps.ListCollector {
+      private final ListTag result = new ListTag();
 
-      default Merger merge(Iterable nbts) {
-         Merger lv = this;
-
-         NbtElement lv2;
-         for(Iterator var3 = nbts.iterator(); var3.hasNext(); lv = lv.merge(lv2)) {
-            lv2 = (NbtElement)var3.next();
-         }
-
-         return lv;
+      public HeterogenousListCollector() {
       }
 
-      default Merger merge(Stream nbts) {
-         Objects.requireNonNull(nbts);
-         return this.merge(nbts::iterator);
+      public HeterogenousListCollector(Collection<Tag> p_249606_) {
+         this.result.addAll(p_249606_);
       }
 
-      NbtElement getResult();
-   }
-
-   class MapBuilder extends RecordBuilder.AbstractStringBuilder {
-      protected MapBuilder() {
-         super(NbtOps.this);
-      }
-
-      protected NbtCompound initBuilder() {
-         return new NbtCompound();
-      }
-
-      protected NbtCompound append(String string, NbtElement arg, NbtCompound arg2) {
-         arg2.put(string, arg);
-         return arg2;
-      }
-
-      protected DataResult build(NbtCompound arg, NbtElement arg2) {
-         if (arg2 != null && arg2 != NbtEnd.INSTANCE) {
-            if (!(arg2 instanceof NbtCompound)) {
-               return DataResult.error(() -> {
-                  return "mergeToMap called with not a map: " + arg2;
-               }, arg2);
-            } else {
-               NbtCompound lv = (NbtCompound)arg2;
-               NbtCompound lv2 = new NbtCompound(Maps.newHashMap(lv.toMap()));
-               Iterator var5 = arg.toMap().entrySet().iterator();
-
-               while(var5.hasNext()) {
-                  Map.Entry entry = (Map.Entry)var5.next();
-                  lv2.put((String)entry.getKey(), (NbtElement)entry.getValue());
-               }
-
-               return DataResult.success(lv2);
-            }
-         } else {
-            return DataResult.success(arg);
-         }
-      }
-
-      // $FF: synthetic method
-      protected Object append(String key, Object value, Object nbt) {
-         return this.append(key, (NbtElement)value, (NbtCompound)nbt);
-      }
-
-      // $FF: synthetic method
-      protected DataResult build(Object nbt, Object mergedValue) {
-         return this.build((NbtCompound)nbt, (NbtElement)mergedValue);
-      }
-
-      // $FF: synthetic method
-      protected Object initBuilder() {
-         return this.initBuilder();
-      }
-   }
-
-   private static class CompoundListMerger implements Merger {
-      private final NbtList list = new NbtList();
-
-      public CompoundListMerger() {
-      }
-
-      public CompoundListMerger(Collection nbts) {
-         this.list.addAll(nbts);
-      }
-
-      public CompoundListMerger(IntArrayList list) {
-         list.forEach((value) -> {
-            this.list.add(createMarkerNbt(NbtInt.of(value)));
+      public HeterogenousListCollector(IntArrayList p_250270_) {
+         p_250270_.forEach((p_249166_) -> {
+            this.result.add(wrapElement(IntTag.valueOf(p_249166_)));
          });
       }
 
-      public CompoundListMerger(ByteArrayList list) {
-         list.forEach((value) -> {
-            this.list.add(createMarkerNbt(NbtByte.of(value)));
+      public HeterogenousListCollector(ByteArrayList p_248575_) {
+         p_248575_.forEach((p_249160_) -> {
+            this.result.add(wrapElement(ByteTag.valueOf(p_249160_)));
          });
       }
 
-      public CompoundListMerger(LongArrayList list) {
-         list.forEach((value) -> {
-            this.list.add(createMarkerNbt(NbtLong.of(value)));
+      public HeterogenousListCollector(LongArrayList p_249410_) {
+         p_249410_.forEach((p_249754_) -> {
+            this.result.add(wrapElement(LongTag.valueOf(p_249754_)));
          });
       }
 
-      private static boolean isMarker(NbtCompound nbt) {
-         return nbt.getSize() == 1 && nbt.contains("");
+      private static boolean isWrapper(CompoundTag p_252073_) {
+         return p_252073_.size() == 1 && p_252073_.contains("");
       }
 
-      private static NbtElement makeMarker(NbtElement value) {
-         if (value instanceof NbtCompound lv) {
-            if (!isMarker(lv)) {
-               return lv;
+      private static Tag wrapIfNeeded(Tag p_252042_) {
+         if (p_252042_ instanceof CompoundTag compoundtag) {
+            if (!isWrapper(compoundtag)) {
+               return compoundtag;
             }
          }
 
-         return createMarkerNbt(value);
+         return wrapElement(p_252042_);
       }
 
-      private static NbtCompound createMarkerNbt(NbtElement value) {
-         NbtCompound lv = new NbtCompound();
-         lv.put("", value);
-         return lv;
+      private static CompoundTag wrapElement(Tag p_251263_) {
+         CompoundTag compoundtag = new CompoundTag();
+         compoundtag.put("", p_251263_);
+         return compoundtag;
       }
 
-      public Merger merge(NbtElement nbt) {
-         this.list.add(makeMarker(nbt));
+      public NbtOps.ListCollector accept(Tag p_249045_) {
+         this.result.add(wrapIfNeeded(p_249045_));
          return this;
       }
 
-      public NbtElement getResult() {
-         return this.list;
+      public Tag result() {
+         return this.result;
       }
    }
 
-   private static class ListMerger implements Merger {
-      private final NbtList list = new NbtList();
+   static class HomogenousListCollector implements NbtOps.ListCollector {
+      private final ListTag result = new ListTag();
 
-      ListMerger(NbtElement nbt) {
-         this.list.add(nbt);
+      HomogenousListCollector(Tag p_249247_) {
+         this.result.add(p_249247_);
       }
 
-      ListMerger(NbtList nbt) {
-         this.list.addAll(nbt);
+      HomogenousListCollector(ListTag p_249889_) {
+         this.result.addAll(p_249889_);
       }
 
-      public Merger merge(NbtElement nbt) {
-         if (nbt.getType() != this.list.getHeldType()) {
-            return (new CompoundListMerger()).merge(this.list).merge(nbt);
+      public NbtOps.ListCollector accept(Tag p_248727_) {
+         if (p_248727_.getId() != this.result.getElementType()) {
+            return (new NbtOps.HeterogenousListCollector()).acceptAll(this.result).accept(p_248727_);
          } else {
-            this.list.add(nbt);
+            this.result.add(p_248727_);
             return this;
          }
       }
 
-      public NbtElement getResult() {
-         return this.list;
+      public Tag result() {
+         return this.result;
       }
    }
 
-   static class ByteArrayMerger implements Merger {
-      private final ByteArrayList list = new ByteArrayList();
+   static class InitialListCollector implements NbtOps.ListCollector {
+      public static final NbtOps.InitialListCollector INSTANCE = new NbtOps.InitialListCollector();
 
-      public ByteArrayMerger(byte value) {
-         this.list.add(value);
+      private InitialListCollector() {
       }
 
-      public ByteArrayMerger(byte[] values) {
-         this.list.addElements(0, values);
-      }
-
-      public Merger merge(NbtElement nbt) {
-         if (nbt instanceof NbtByte lv) {
-            this.list.add(lv.byteValue());
-            return this;
+      public NbtOps.ListCollector accept(Tag p_251635_) {
+         if (p_251635_ instanceof CompoundTag compoundtag) {
+            return (new NbtOps.HeterogenousListCollector()).accept(compoundtag);
+         } else if (p_251635_ instanceof ByteTag bytetag) {
+            return new NbtOps.ByteListCollector(bytetag.getAsByte());
+         } else if (p_251635_ instanceof IntTag inttag) {
+            return new NbtOps.IntListCollector(inttag.getAsInt());
+         } else if (p_251635_ instanceof LongTag longtag) {
+            return new NbtOps.LongListCollector(longtag.getAsLong());
          } else {
-            return (new CompoundListMerger(this.list)).merge(nbt);
+            return new NbtOps.HomogenousListCollector(p_251635_);
          }
       }
 
-      public NbtElement getResult() {
-         return new NbtByteArray(this.list.toByteArray());
+      public Tag result() {
+         return new ListTag();
       }
    }
 
-   private static class IntArrayMerger implements Merger {
-      private final IntArrayList list = new IntArrayList();
+   static class IntListCollector implements NbtOps.ListCollector {
+      private final IntArrayList values = new IntArrayList();
 
-      public IntArrayMerger(int value) {
-         this.list.add(value);
+      public IntListCollector(int p_250274_) {
+         this.values.add(p_250274_);
       }
 
-      public IntArrayMerger(int[] values) {
-         this.list.addElements(0, values);
+      public IntListCollector(int[] p_249489_) {
+         this.values.addElements(0, p_249489_);
       }
 
-      public Merger merge(NbtElement nbt) {
-         if (nbt instanceof NbtInt lv) {
-            this.list.add(lv.intValue());
+      public NbtOps.ListCollector accept(Tag p_251372_) {
+         if (p_251372_ instanceof IntTag inttag) {
+            this.values.add(inttag.getAsInt());
             return this;
          } else {
-            return (new CompoundListMerger(this.list)).merge(nbt);
+            return (new NbtOps.HeterogenousListCollector(this.values)).accept(p_251372_);
          }
       }
 
-      public NbtElement getResult() {
-         return new NbtIntArray(this.list.toIntArray());
+      public Tag result() {
+         return new IntArrayTag(this.values.toIntArray());
       }
    }
 
-   static class LongArrayMerger implements Merger {
-      private final LongArrayList list = new LongArrayList();
+   interface ListCollector {
+      NbtOps.ListCollector accept(Tag p_249030_);
 
-      public LongArrayMerger(long value) {
-         this.list.add(value);
+      default NbtOps.ListCollector acceptAll(Iterable<Tag> p_249781_) {
+         NbtOps.ListCollector nbtops$listcollector = this;
+
+         for(Tag tag : p_249781_) {
+            nbtops$listcollector = nbtops$listcollector.accept(tag);
+         }
+
+         return nbtops$listcollector;
       }
 
-      public LongArrayMerger(long[] values) {
-         this.list.addElements(0, values);
+      default NbtOps.ListCollector acceptAll(Stream<Tag> p_249876_) {
+         return this.acceptAll(p_249876_::iterator);
       }
 
-      public Merger merge(NbtElement nbt) {
-         if (nbt instanceof NbtLong lv) {
-            this.list.add(lv.longValue());
+      Tag result();
+   }
+
+   static class LongListCollector implements NbtOps.ListCollector {
+      private final LongArrayList values = new LongArrayList();
+
+      public LongListCollector(long p_249842_) {
+         this.values.add(p_249842_);
+      }
+
+      public LongListCollector(long[] p_251409_) {
+         this.values.addElements(0, p_251409_);
+      }
+
+      public NbtOps.ListCollector accept(Tag p_252167_) {
+         if (p_252167_ instanceof LongTag longtag) {
+            this.values.add(longtag.getAsLong());
             return this;
          } else {
-            return (new CompoundListMerger(this.list)).merge(nbt);
+            return (new NbtOps.HeterogenousListCollector(this.values)).accept(p_252167_);
          }
       }
 
-      public NbtElement getResult() {
-         return new NbtLongArray(this.list.toLongArray());
+      public Tag result() {
+         return new LongArrayTag(this.values.toLongArray());
+      }
+   }
+
+   class NbtRecordBuilder extends RecordBuilder.AbstractStringBuilder<Tag, CompoundTag> {
+      protected NbtRecordBuilder() {
+         super(NbtOps.this);
+      }
+
+      protected CompoundTag initBuilder() {
+         return new CompoundTag();
+      }
+
+      protected CompoundTag append(String p_129186_, Tag p_129187_, CompoundTag p_129188_) {
+         p_129188_.put(p_129186_, p_129187_);
+         return p_129188_;
+      }
+
+      protected DataResult<Tag> build(CompoundTag p_129190_, Tag p_129191_) {
+         if (p_129191_ != null && p_129191_ != EndTag.INSTANCE) {
+            if (!(p_129191_ instanceof CompoundTag)) {
+               return DataResult.error(() -> {
+                  return "mergeToMap called with not a map: " + p_129191_;
+               }, p_129191_);
+            } else {
+               CompoundTag compoundtag = (CompoundTag)p_129191_;
+               CompoundTag compoundtag1 = new CompoundTag(Maps.newHashMap(compoundtag.entries()));
+
+               for(Map.Entry<String, Tag> entry : p_129190_.entries().entrySet()) {
+                  compoundtag1.put(entry.getKey(), entry.getValue());
+               }
+
+               return DataResult.success(compoundtag1);
+            }
+         } else {
+            return DataResult.success(p_129190_);
+         }
       }
    }
 }

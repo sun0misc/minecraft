@@ -1,56 +1,50 @@
 package net.minecraft.client.particle;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.DefaultParticleType;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.tags.FluidTags;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
-public class BubbleColumnUpParticle extends SpriteBillboardParticle {
-   BubbleColumnUpParticle(ClientWorld arg, double d, double e, double f, double g, double h, double i) {
-      super(arg, d, e, f);
-      this.gravityStrength = -0.125F;
-      this.velocityMultiplier = 0.85F;
-      this.setBoundingBoxSpacing(0.02F, 0.02F);
-      this.scale *= this.random.nextFloat() * 0.6F + 0.2F;
-      this.velocityX = g * 0.20000000298023224 + (Math.random() * 2.0 - 1.0) * 0.019999999552965164;
-      this.velocityY = h * 0.20000000298023224 + (Math.random() * 2.0 - 1.0) * 0.019999999552965164;
-      this.velocityZ = i * 0.20000000298023224 + (Math.random() * 2.0 - 1.0) * 0.019999999552965164;
-      this.maxAge = (int)(40.0 / (Math.random() * 0.8 + 0.2));
+@OnlyIn(Dist.CLIENT)
+public class BubbleColumnUpParticle extends TextureSheetParticle {
+   BubbleColumnUpParticle(ClientLevel p_105733_, double p_105734_, double p_105735_, double p_105736_, double p_105737_, double p_105738_, double p_105739_) {
+      super(p_105733_, p_105734_, p_105735_, p_105736_);
+      this.gravity = -0.125F;
+      this.friction = 0.85F;
+      this.setSize(0.02F, 0.02F);
+      this.quadSize *= this.random.nextFloat() * 0.6F + 0.2F;
+      this.xd = p_105737_ * (double)0.2F + (Math.random() * 2.0D - 1.0D) * (double)0.02F;
+      this.yd = p_105738_ * (double)0.2F + (Math.random() * 2.0D - 1.0D) * (double)0.02F;
+      this.zd = p_105739_ * (double)0.2F + (Math.random() * 2.0D - 1.0D) * (double)0.02F;
+      this.lifetime = (int)(40.0D / (Math.random() * 0.8D + 0.2D));
    }
 
    public void tick() {
       super.tick();
-      if (!this.dead && !this.world.getFluidState(BlockPos.ofFloored(this.x, this.y, this.z)).isIn(FluidTags.WATER)) {
-         this.markDead();
+      if (!this.removed && !this.level.getFluidState(BlockPos.containing(this.x, this.y, this.z)).is(FluidTags.WATER)) {
+         this.remove();
       }
 
    }
 
-   public ParticleTextureSheet getType() {
-      return ParticleTextureSheet.PARTICLE_SHEET_OPAQUE;
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_OPAQUE;
    }
 
-   @Environment(EnvType.CLIENT)
-   public static class Factory implements ParticleFactory {
-      private final SpriteProvider spriteProvider;
+   @OnlyIn(Dist.CLIENT)
+   public static class Provider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprite;
 
-      public Factory(SpriteProvider spriteProvider) {
-         this.spriteProvider = spriteProvider;
+      public Provider(SpriteSet p_105753_) {
+         this.sprite = p_105753_;
       }
 
-      public Particle createParticle(DefaultParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
-         BubbleColumnUpParticle lv = new BubbleColumnUpParticle(arg2, d, e, f, g, h, i);
-         lv.setSprite(this.spriteProvider);
-         return lv;
-      }
-
-      // $FF: synthetic method
-      public Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
-         return this.createParticle((DefaultParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+      public Particle createParticle(SimpleParticleType p_105764_, ClientLevel p_105765_, double p_105766_, double p_105767_, double p_105768_, double p_105769_, double p_105770_, double p_105771_) {
+         BubbleColumnUpParticle bubblecolumnupparticle = new BubbleColumnUpParticle(p_105765_, p_105766_, p_105767_, p_105768_, p_105769_, p_105770_, p_105771_);
+         bubblecolumnupparticle.pickSprite(this.sprite);
+         return bubblecolumnupparticle;
       }
    }
 }

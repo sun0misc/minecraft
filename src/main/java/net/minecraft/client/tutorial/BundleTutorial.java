@@ -1,61 +1,61 @@
 package net.minecraft.client.tutorial;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.toast.TutorialToast;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.text.Text;
-import net.minecraft.util.ClickType;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
+import net.minecraft.client.Options;
+import net.minecraft.client.gui.components.toasts.TutorialToast;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public class BundleTutorial {
-   private final TutorialManager manager;
-   private final GameOptions options;
+   private final Tutorial tutorial;
+   private final Options options;
    @Nullable
    private TutorialToast toast;
 
-   public BundleTutorial(TutorialManager manager, GameOptions options) {
-      this.manager = manager;
-      this.options = options;
+   public BundleTutorial(Tutorial p_175003_, Options p_175004_) {
+      this.tutorial = p_175003_;
+      this.options = p_175004_;
    }
 
-   private void start() {
+   private void showToast() {
       if (this.toast != null) {
-         this.manager.remove(this.toast);
+         this.tutorial.removeTimedToast(this.toast);
       }
 
-      Text lv = Text.translatable("tutorial.bundleInsert.title");
-      Text lv2 = Text.translatable("tutorial.bundleInsert.description");
-      this.toast = new TutorialToast(TutorialToast.Type.RIGHT_CLICK, lv, lv2, true);
-      this.manager.add(this.toast, 160);
+      Component component = Component.translatable("tutorial.bundleInsert.title");
+      Component component1 = Component.translatable("tutorial.bundleInsert.description");
+      this.toast = new TutorialToast(TutorialToast.Icons.RIGHT_CLICK, component, component1, true);
+      this.tutorial.addTimedToast(this.toast, 160);
    }
 
-   private void end() {
+   private void clearToast() {
       if (this.toast != null) {
-         this.manager.remove(this.toast);
+         this.tutorial.removeTimedToast(this.toast);
          this.toast = null;
       }
 
       if (!this.options.hideBundleTutorial) {
          this.options.hideBundleTutorial = true;
-         this.options.write();
+         this.options.save();
       }
 
    }
 
-   public void onPickupSlotClick(ItemStack cursorStack, ItemStack slotStack, ClickType clickType) {
+   public void onInventoryAction(ItemStack p_175007_, ItemStack p_175008_, ClickAction p_175009_) {
       if (!this.options.hideBundleTutorial) {
-         if (!cursorStack.isEmpty() && slotStack.isOf(Items.BUNDLE)) {
-            if (clickType == ClickType.LEFT) {
-               this.start();
-            } else if (clickType == ClickType.RIGHT) {
-               this.end();
+         if (!p_175007_.isEmpty() && p_175008_.is(Items.BUNDLE)) {
+            if (p_175009_ == ClickAction.PRIMARY) {
+               this.showToast();
+            } else if (p_175009_ == ClickAction.SECONDARY) {
+               this.clearToast();
             }
-         } else if (cursorStack.isOf(Items.BUNDLE) && !slotStack.isEmpty() && clickType == ClickType.RIGHT) {
-            this.end();
+         } else if (p_175007_.is(Items.BUNDLE) && !p_175008_.isEmpty() && p_175009_ == ClickAction.SECONDARY) {
+            this.clearToast();
          }
 
       }

@@ -1,42 +1,36 @@
 package net.minecraft.client.particle;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.DefaultParticleType;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.util.RandomSource;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
-public class WhiteAshParticle extends AscendingParticle {
-   private static final int COLOR = 12235202;
+@OnlyIn(Dist.CLIENT)
+public class WhiteAshParticle extends BaseAshSmokeParticle {
+   private static final int COLOR_RGB24 = 12235202;
 
-   protected WhiteAshParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, float scaleMultiplier, SpriteProvider spriteProvider) {
-      super(world, x, y, z, 0.1F, -0.1F, 0.1F, velocityX, velocityY, velocityZ, scaleMultiplier, spriteProvider, 0.0F, 20, 0.0125F, false);
-      this.red = 0.7294118F;
-      this.green = 0.69411767F;
-      this.blue = 0.7607843F;
+   protected WhiteAshParticle(ClientLevel p_108512_, double p_108513_, double p_108514_, double p_108515_, double p_108516_, double p_108517_, double p_108518_, float p_108519_, SpriteSet p_108520_) {
+      super(p_108512_, p_108513_, p_108514_, p_108515_, 0.1F, -0.1F, 0.1F, p_108516_, p_108517_, p_108518_, p_108519_, p_108520_, 0.0F, 20, 0.0125F, false);
+      this.rCol = 0.7294118F;
+      this.gCol = 0.69411767F;
+      this.bCol = 0.7607843F;
    }
 
-   @Environment(EnvType.CLIENT)
-   public static class Factory implements ParticleFactory {
-      private final SpriteProvider spriteProvider;
+   @OnlyIn(Dist.CLIENT)
+   public static class Provider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprites;
 
-      public Factory(SpriteProvider spriteProvider) {
-         this.spriteProvider = spriteProvider;
+      public Provider(SpriteSet p_108523_) {
+         this.sprites = p_108523_;
       }
 
-      public Particle createParticle(DefaultParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
-         Random lv = arg2.random;
-         double j = (double)lv.nextFloat() * -1.9 * (double)lv.nextFloat() * 0.1;
-         double k = (double)lv.nextFloat() * -0.5 * (double)lv.nextFloat() * 0.1 * 5.0;
-         double l = (double)lv.nextFloat() * -1.9 * (double)lv.nextFloat() * 0.1;
-         return new WhiteAshParticle(arg2, d, e, f, j, k, l, 1.0F, this.spriteProvider);
-      }
-
-      // $FF: synthetic method
-      public Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
-         return this.createParticle((DefaultParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+      public Particle createParticle(SimpleParticleType p_108534_, ClientLevel p_108535_, double p_108536_, double p_108537_, double p_108538_, double p_108539_, double p_108540_, double p_108541_) {
+         RandomSource randomsource = p_108535_.random;
+         double d0 = (double)randomsource.nextFloat() * -1.9D * (double)randomsource.nextFloat() * 0.1D;
+         double d1 = (double)randomsource.nextFloat() * -0.5D * (double)randomsource.nextFloat() * 0.1D * 5.0D;
+         double d2 = (double)randomsource.nextFloat() * -1.9D * (double)randomsource.nextFloat() * 0.1D;
+         return new WhiteAshParticle(p_108535_, p_108536_, p_108537_, p_108538_, d0, d1, d2, 1.0F, this.sprites);
       }
    }
 }

@@ -1,15 +1,15 @@
 package net.minecraft.util;
 
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 public interface ProgressListener {
-   void setTitle(Text title);
+   void progressStartNoAbort(Component p_14212_);
 
-   void setTitleAndTask(Text title);
+   void progressStart(Component p_14213_);
 
-   void setTask(Text task);
+   void progressStage(Component p_14214_);
 
-   void progressStagePercentage(int percentage);
+   void progressStagePercentage(int p_14211_);
 
-   void setDone();
+   void stop();
 }

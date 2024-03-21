@@ -13,275 +13,163 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import net.minecraft.nbt.scanner.NbtScanner;
-import net.minecraft.util.FixedBufferInputStream;
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.crash.CrashReport;
-import net.minecraft.util.crash.CrashReportSection;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
+import net.minecraft.CrashReport;
+import net.minecraft.CrashReportCategory;
+import net.minecraft.ReportedException;
+import net.minecraft.util.FastBufferedInputStream;
 
 public class NbtIo {
-   public static NbtCompound readCompressed(File file) throws IOException {
-      InputStream inputStream = new FileInputStream(file);
-
-      NbtCompound var2;
-      try {
-         var2 = readCompressed((InputStream)inputStream);
-      } catch (Throwable var5) {
-         try {
-            inputStream.close();
-         } catch (Throwable var4) {
-            var5.addSuppressed(var4);
-         }
-
-         throw var5;
+   public static CompoundTag readCompressed(File p_128938_) throws IOException {
+      try (InputStream inputstream = new FileInputStream(p_128938_)) {
+         return readCompressed(inputstream);
       }
-
-      inputStream.close();
-      return var2;
    }
 
-   private static DataInputStream decompress(InputStream stream) throws IOException {
-      return new DataInputStream(new FixedBufferInputStream(new GZIPInputStream(stream)));
+   private static DataInputStream createDecompressorStream(InputStream p_202494_) throws IOException {
+      return new DataInputStream(new FastBufferedInputStream(new GZIPInputStream(p_202494_)));
    }
 
-   public static NbtCompound readCompressed(InputStream stream) throws IOException {
-      DataInputStream dataInputStream = decompress(stream);
-
-      NbtCompound var2;
-      try {
-         var2 = read(dataInputStream, NbtTagSizeTracker.EMPTY);
-      } catch (Throwable var5) {
-         if (dataInputStream != null) {
-            try {
-               dataInputStream.close();
-            } catch (Throwable var4) {
-               var5.addSuppressed(var4);
-            }
-         }
-
-         throw var5;
+   public static CompoundTag readCompressed(InputStream p_128940_) throws IOException {
+      try (DataInputStream datainputstream = createDecompressorStream(p_128940_)) {
+         return read(datainputstream, NbtAccounter.unlimitedHeap());
       }
-
-      if (dataInputStream != null) {
-         dataInputStream.close();
-      }
-
-      return var2;
    }
 
-   public static void scanCompressed(File file, NbtScanner scanner) throws IOException {
-      InputStream inputStream = new FileInputStream(file);
-
-      try {
-         scanCompressed((InputStream)inputStream, scanner);
-      } catch (Throwable var6) {
-         try {
-            inputStream.close();
-         } catch (Throwable var5) {
-            var6.addSuppressed(var5);
-         }
-
-         throw var6;
-      }
-
-      inputStream.close();
-   }
-
-   public static void scanCompressed(InputStream stream, NbtScanner scanner) throws IOException {
-      DataInputStream dataInputStream = decompress(stream);
-
-      try {
-         scan(dataInputStream, scanner);
-      } catch (Throwable var6) {
-         if (dataInputStream != null) {
-            try {
-               dataInputStream.close();
-            } catch (Throwable var5) {
-               var6.addSuppressed(var5);
-            }
-         }
-
-         throw var6;
-      }
-
-      if (dataInputStream != null) {
-         dataInputStream.close();
+   public static void parseCompressed(File p_202488_, StreamTagVisitor p_202489_, NbtAccounter p_301727_) throws IOException {
+      try (InputStream inputstream = new FileInputStream(p_202488_)) {
+         parseCompressed(inputstream, p_202489_, p_301727_);
       }
 
    }
 
-   public static void writeCompressed(NbtCompound nbt, File file) throws IOException {
-      OutputStream outputStream = new FileOutputStream(file);
-
-      try {
-         writeCompressed(nbt, (OutputStream)outputStream);
-      } catch (Throwable var6) {
-         try {
-            outputStream.close();
-         } catch (Throwable var5) {
-            var6.addSuppressed(var5);
-         }
-
-         throw var6;
+   public static void parseCompressed(InputStream p_202491_, StreamTagVisitor p_202492_, NbtAccounter p_301762_) throws IOException {
+      try (DataInputStream datainputstream = createDecompressorStream(p_202491_)) {
+         parse(datainputstream, p_202492_, p_301762_);
       }
 
-      outputStream.close();
    }
 
-   public static void writeCompressed(NbtCompound nbt, OutputStream stream) throws IOException {
-      DataOutputStream dataOutputStream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(stream)));
-
-      try {
-         write((NbtCompound)nbt, (DataOutput)dataOutputStream);
-      } catch (Throwable var6) {
-         try {
-            dataOutputStream.close();
-         } catch (Throwable var5) {
-            var6.addSuppressed(var5);
-         }
-
-         throw var6;
+   public static void writeCompressed(CompoundTag p_128945_, File p_128946_) throws IOException {
+      try (OutputStream outputstream = new FileOutputStream(p_128946_)) {
+         writeCompressed(p_128945_, outputstream);
       }
 
-      dataOutputStream.close();
    }
 
-   public static void write(NbtCompound nbt, File file) throws IOException {
-      FileOutputStream fileOutputStream = new FileOutputStream(file);
-
-      try {
-         DataOutputStream dataOutputStream = new DataOutputStream(fileOutputStream);
-
-         try {
-            write((NbtCompound)nbt, (DataOutput)dataOutputStream);
-         } catch (Throwable var8) {
-            try {
-               dataOutputStream.close();
-            } catch (Throwable var7) {
-               var8.addSuppressed(var7);
-            }
-
-            throw var8;
-         }
-
-         dataOutputStream.close();
-      } catch (Throwable var9) {
-         try {
-            fileOutputStream.close();
-         } catch (Throwable var6) {
-            var9.addSuppressed(var6);
-         }
-
-         throw var9;
+   public static void writeCompressed(CompoundTag p_128948_, OutputStream p_128949_) throws IOException {
+      try (DataOutputStream dataoutputstream = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(p_128949_)))) {
+         write(p_128948_, dataoutputstream);
       }
 
-      fileOutputStream.close();
+   }
+
+   public static void write(CompoundTag p_128956_, File p_128957_) throws IOException {
+      try (
+         FileOutputStream fileoutputstream = new FileOutputStream(p_128957_);
+         DataOutputStream dataoutputstream = new DataOutputStream(fileoutputstream);
+      ) {
+         write(p_128956_, dataoutputstream);
+      }
+
    }
 
    @Nullable
-   public static NbtCompound read(File file) throws IOException {
-      if (!file.exists()) {
+   public static CompoundTag read(File p_128954_) throws IOException {
+      if (!p_128954_.exists()) {
          return null;
       } else {
-         FileInputStream fileInputStream = new FileInputStream(file);
-
-         NbtCompound var3;
-         try {
-            DataInputStream dataInputStream = new DataInputStream(fileInputStream);
-
-            try {
-               var3 = read(dataInputStream, NbtTagSizeTracker.EMPTY);
-            } catch (Throwable var7) {
-               try {
-                  dataInputStream.close();
-               } catch (Throwable var6) {
-                  var7.addSuppressed(var6);
-               }
-
-               throw var7;
-            }
-
-            dataInputStream.close();
-         } catch (Throwable var8) {
-            try {
-               fileInputStream.close();
-            } catch (Throwable var5) {
-               var8.addSuppressed(var5);
-            }
-
-            throw var8;
+         CompoundTag compoundtag;
+         try (
+            FileInputStream fileinputstream = new FileInputStream(p_128954_);
+            DataInputStream datainputstream = new DataInputStream(fileinputstream);
+         ) {
+            compoundtag = read(datainputstream, NbtAccounter.unlimitedHeap());
          }
 
-         fileInputStream.close();
-         return var3;
+         return compoundtag;
       }
    }
 
-   public static NbtCompound read(DataInput input) throws IOException {
-      return read(input, NbtTagSizeTracker.EMPTY);
+   public static CompoundTag read(DataInput p_128929_) throws IOException {
+      return read(p_128929_, NbtAccounter.unlimitedHeap());
    }
 
-   public static NbtCompound read(DataInput input, NbtTagSizeTracker tracker) throws IOException {
-      NbtElement lv = read(input, 0, tracker);
-      if (lv instanceof NbtCompound) {
-         return (NbtCompound)lv;
+   public static CompoundTag read(DataInput p_128935_, NbtAccounter p_128936_) throws IOException {
+      Tag tag = readUnnamedTag(p_128935_, p_128936_);
+      if (tag instanceof CompoundTag) {
+         return (CompoundTag)tag;
       } else {
          throw new IOException("Root tag must be a named compound tag");
       }
    }
 
-   public static void write(NbtCompound nbt, DataOutput output) throws IOException {
-      write((NbtElement)nbt, (DataOutput)output);
+   public static void write(CompoundTag p_128942_, DataOutput p_128943_) throws IOException {
+      writeUnnamedTag(p_128942_, p_128943_);
    }
 
-   public static void scan(DataInput input, NbtScanner scanner) throws IOException {
-      NbtType lv = NbtTypes.byId(input.readByte());
-      if (lv == NbtEnd.TYPE) {
-         if (scanner.start(NbtEnd.TYPE) == NbtScanner.Result.CONTINUE) {
-            scanner.visitEnd();
+   public static void parse(DataInput p_197510_, StreamTagVisitor p_197511_, NbtAccounter p_301755_) throws IOException {
+      TagType<?> tagtype = TagTypes.getType(p_197510_.readByte());
+      if (tagtype == EndTag.TYPE) {
+         if (p_197511_.visitRootEntry(EndTag.TYPE) == StreamTagVisitor.ValueResult.CONTINUE) {
+            p_197511_.visitEnd();
          }
 
       } else {
-         switch (scanner.start(lv)) {
+         switch (p_197511_.visitRootEntry(tagtype)) {
             case HALT:
             default:
                break;
             case BREAK:
-               NbtString.skip(input);
-               lv.skip(input);
+               StringTag.skipString(p_197510_);
+               tagtype.skip(p_197510_, p_301755_);
                break;
             case CONTINUE:
-               NbtString.skip(input);
-               lv.doAccept(input, scanner);
+               StringTag.skipString(p_197510_);
+               tagtype.parse(p_197510_, p_197511_, p_301755_);
          }
 
       }
    }
 
-   public static void write(NbtElement nbt, DataOutput output) throws IOException {
-      output.writeByte(nbt.getType());
-      if (nbt.getType() != 0) {
-         output.writeUTF("");
-         nbt.write(output);
+   public static Tag readAnyTag(DataInput p_301023_, NbtAccounter p_299704_) throws IOException {
+      byte b0 = p_301023_.readByte();
+      return (Tag)(b0 == 0 ? EndTag.INSTANCE : readTagSafe(p_301023_, p_299704_, b0));
+   }
+
+   public static void writeAnyTag(Tag p_300328_, DataOutput p_297970_) throws IOException {
+      p_297970_.writeByte(p_300328_.getId());
+      if (p_300328_.getId() != 0) {
+         p_300328_.write(p_297970_);
       }
    }
 
-   private static NbtElement read(DataInput input, int depth, NbtTagSizeTracker tracker) throws IOException {
-      byte b = input.readByte();
-      if (b == 0) {
-         return NbtEnd.INSTANCE;
+   public static void writeUnnamedTag(Tag p_128951_, DataOutput p_128952_) throws IOException {
+      p_128952_.writeByte(p_128951_.getId());
+      if (p_128951_.getId() != 0) {
+         p_128952_.writeUTF("");
+         p_128951_.write(p_128952_);
+      }
+   }
+
+   private static Tag readUnnamedTag(DataInput p_128931_, NbtAccounter p_128933_) throws IOException {
+      byte b0 = p_128931_.readByte();
+      if (b0 == 0) {
+         return EndTag.INSTANCE;
       } else {
-         NbtString.skip(input);
+         StringTag.skipString(p_128931_);
+         return readTagSafe(p_128931_, p_128933_, b0);
+      }
+   }
 
-         try {
-            return NbtTypes.byId(b).read(input, depth, tracker);
-         } catch (IOException var7) {
-            CrashReport lv = CrashReport.create(var7, "Loading NBT data");
-            CrashReportSection lv2 = lv.addElement("NBT Tag");
-            lv2.add("Tag type", (Object)b);
-            throw new CrashException(lv);
-         }
+   private static Tag readTagSafe(DataInput p_299672_, NbtAccounter p_299171_, byte p_300451_) {
+      try {
+         return TagTypes.getType(p_300451_).load(p_299672_, p_299171_);
+      } catch (IOException ioexception) {
+         CrashReport crashreport = CrashReport.forThrowable(ioexception, "Loading NBT data");
+         CrashReportCategory crashreportcategory = crashreport.addCategory("NBT Tag");
+         crashreportcategory.setDetail("Tag type", p_300451_);
+         throw new ReportedException(crashreport);
       }
    }
 }

@@ -1,67 +1,67 @@
 package net.minecraft.client.particle;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.render.BufferBuilderStorage;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.Camera;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderBuffers;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public class ItemPickupParticle extends Particle {
-   private static final int field_32656 = 3;
-   private final BufferBuilderStorage bufferStorage;
+   private static final int LIFE_TIME = 3;
+   private final RenderBuffers renderBuffers;
    private final Entity itemEntity;
-   private final Entity interactingEntity;
-   private int ticksExisted;
-   private final EntityRenderDispatcher dispatcher;
+   private final Entity target;
+   private int life;
+   private final EntityRenderDispatcher entityRenderDispatcher;
 
-   public ItemPickupParticle(EntityRenderDispatcher dispatcher, BufferBuilderStorage bufferStorage, ClientWorld world, Entity itemEntity, Entity interactingEntity) {
-      this(dispatcher, bufferStorage, world, itemEntity, interactingEntity, itemEntity.getVelocity());
+   public ItemPickupParticle(EntityRenderDispatcher p_107023_, RenderBuffers p_107024_, ClientLevel p_107025_, Entity p_107026_, Entity p_107027_) {
+      this(p_107023_, p_107024_, p_107025_, p_107026_, p_107027_, p_107026_.getDeltaMovement());
    }
 
-   private ItemPickupParticle(EntityRenderDispatcher dispatcher, BufferBuilderStorage bufferStorage, ClientWorld world, Entity itemEntity, Entity interactingEntity, Vec3d velocity) {
-      super(world, itemEntity.getX(), itemEntity.getY(), itemEntity.getZ(), velocity.x, velocity.y, velocity.z);
-      this.bufferStorage = bufferStorage;
-      this.itemEntity = this.getOrCopy(itemEntity);
-      this.interactingEntity = interactingEntity;
-      this.dispatcher = dispatcher;
+   private ItemPickupParticle(EntityRenderDispatcher p_107029_, RenderBuffers p_107030_, ClientLevel p_107031_, Entity p_107032_, Entity p_107033_, Vec3 p_107034_) {
+      super(p_107031_, p_107032_.getX(), p_107032_.getY(), p_107032_.getZ(), p_107034_.x, p_107034_.y, p_107034_.z);
+      this.renderBuffers = p_107030_;
+      this.itemEntity = this.getSafeCopy(p_107032_);
+      this.target = p_107033_;
+      this.entityRenderDispatcher = p_107029_;
    }
 
-   private Entity getOrCopy(Entity entity) {
-      return (Entity)(!(entity instanceof ItemEntity) ? entity : ((ItemEntity)entity).copy());
+   private Entity getSafeCopy(Entity p_107037_) {
+      return (Entity)(!(p_107037_ instanceof ItemEntity) ? p_107037_ : ((ItemEntity)p_107037_).copy());
    }
 
-   public ParticleTextureSheet getType() {
-      return ParticleTextureSheet.CUSTOM;
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.CUSTOM;
    }
 
-   public void buildGeometry(VertexConsumer vertexConsumer, Camera camera, float tickDelta) {
-      float g = ((float)this.ticksExisted + tickDelta) / 3.0F;
-      g *= g;
-      double d = MathHelper.lerp((double)tickDelta, this.interactingEntity.lastRenderX, this.interactingEntity.getX());
-      double e = MathHelper.lerp((double)tickDelta, this.interactingEntity.lastRenderY, (this.interactingEntity.getY() + this.interactingEntity.getEyeY()) / 2.0);
-      double h = MathHelper.lerp((double)tickDelta, this.interactingEntity.lastRenderZ, this.interactingEntity.getZ());
-      double i = MathHelper.lerp((double)g, this.itemEntity.getX(), d);
-      double j = MathHelper.lerp((double)g, this.itemEntity.getY(), e);
-      double k = MathHelper.lerp((double)g, this.itemEntity.getZ(), h);
-      VertexConsumerProvider.Immediate lv = this.bufferStorage.getEntityVertexConsumers();
-      Vec3d lv2 = camera.getPos();
-      this.dispatcher.render(this.itemEntity, i - lv2.getX(), j - lv2.getY(), k - lv2.getZ(), this.itemEntity.getYaw(), tickDelta, new MatrixStack(), lv, this.dispatcher.getLight(this.itemEntity, tickDelta));
-      lv.draw();
+   public void render(VertexConsumer p_107039_, Camera p_107040_, float p_107041_) {
+      float f = ((float)this.life + p_107041_) / 3.0F;
+      f *= f;
+      double d0 = Mth.lerp((double)p_107041_, this.target.xOld, this.target.getX());
+      double d1 = Mth.lerp((double)p_107041_, this.target.yOld, (this.target.getY() + this.target.getEyeY()) / 2.0D);
+      double d2 = Mth.lerp((double)p_107041_, this.target.zOld, this.target.getZ());
+      double d3 = Mth.lerp((double)f, this.itemEntity.getX(), d0);
+      double d4 = Mth.lerp((double)f, this.itemEntity.getY(), d1);
+      double d5 = Mth.lerp((double)f, this.itemEntity.getZ(), d2);
+      MultiBufferSource.BufferSource multibuffersource$buffersource = this.renderBuffers.bufferSource();
+      Vec3 vec3 = p_107040_.getPosition();
+      this.entityRenderDispatcher.render(this.itemEntity, d3 - vec3.x(), d4 - vec3.y(), d5 - vec3.z(), this.itemEntity.getYRot(), p_107041_, new PoseStack(), multibuffersource$buffersource, this.entityRenderDispatcher.getPackedLightCoords(this.itemEntity, p_107041_));
+      multibuffersource$buffersource.endBatch();
    }
 
    public void tick() {
-      ++this.ticksExisted;
-      if (this.ticksExisted == 3) {
-         this.markDead();
+      ++this.life;
+      if (this.life == 3) {
+         this.remove();
       }
 
    }

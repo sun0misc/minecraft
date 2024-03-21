@@ -1,58 +1,53 @@
 package net.minecraft.world;
 
 import java.util.function.IntFunction;
-import net.minecraft.text.Text;
-import net.minecraft.util.StringIdentifiable;
-import net.minecraft.util.function.ValueLists;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.ByIdMap;
+import net.minecraft.util.StringRepresentable;
 
-public enum Difficulty implements StringIdentifiable {
+public enum Difficulty implements StringRepresentable {
    PEACEFUL(0, "peaceful"),
    EASY(1, "easy"),
    NORMAL(2, "normal"),
    HARD(3, "hard");
 
-   public static final StringIdentifiable.Codec CODEC = StringIdentifiable.createCodec(Difficulty::values);
-   private static final IntFunction BY_ID = ValueLists.createIdToValueFunction(Difficulty::getId, values(), (ValueLists.OutOfBoundsHandling)ValueLists.OutOfBoundsHandling.WRAP);
+   public static final StringRepresentable.EnumCodec<Difficulty> CODEC = StringRepresentable.fromEnum(Difficulty::values);
+   private static final IntFunction<Difficulty> BY_ID = ByIdMap.continuous(Difficulty::getId, values(), ByIdMap.OutOfBoundsStrategy.WRAP);
    private final int id;
-   private final String name;
+   private final String key;
 
-   private Difficulty(int id, String name) {
-      this.id = id;
-      this.name = name;
+   private Difficulty(int p_19026_, String p_19027_) {
+      this.id = p_19026_;
+      this.key = p_19027_;
    }
 
    public int getId() {
       return this.id;
    }
 
-   public Text getTranslatableName() {
-      return Text.translatable("options.difficulty." + this.name);
+   public Component getDisplayName() {
+      return Component.translatable("options.difficulty." + this.key);
    }
 
-   public Text getInfo() {
-      return Text.translatable("options.difficulty." + this.name + ".info");
+   public Component getInfo() {
+      return Component.translatable("options.difficulty." + this.key + ".info");
    }
 
-   public static Difficulty byId(int id) {
-      return (Difficulty)BY_ID.apply(id);
+   public static Difficulty byId(int p_19030_) {
+      return BY_ID.apply(p_19030_);
    }
 
    @Nullable
-   public static Difficulty byName(String name) {
-      return (Difficulty)CODEC.byId(name);
+   public static Difficulty byName(String p_19032_) {
+      return CODEC.byName(p_19032_);
    }
 
-   public String getName() {
-      return this.name;
+   public String getKey() {
+      return this.key;
    }
 
-   public String asString() {
-      return this.name;
-   }
-
-   // $FF: synthetic method
-   private static Difficulty[] method_36597() {
-      return new Difficulty[]{PEACEFUL, EASY, NORMAL, HARD};
+   public String getSerializedName() {
+      return this.key;
    }
 }

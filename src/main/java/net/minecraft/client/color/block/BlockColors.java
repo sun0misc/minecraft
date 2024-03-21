@@ -4,127 +4,119 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import java.util.Map;
 import java.util.Set;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.MapColor;
-import net.minecraft.block.RedstoneWireBlock;
-import net.minecraft.block.StemBlock;
-import net.minecraft.block.TallPlantBlock;
-import net.minecraft.block.enums.DoubleBlockHalf;
-import net.minecraft.client.color.world.BiomeColors;
-import net.minecraft.client.color.world.FoliageColors;
-import net.minecraft.client.color.world.GrassColors;
-import net.minecraft.registry.Registries;
-import net.minecraft.state.property.Property;
-import net.minecraft.util.collection.IdList;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.BlockRenderView;
-import net.minecraft.world.World;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
+import net.minecraft.client.renderer.BiomeColors;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.IdMapper;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.FoliageColor;
+import net.minecraft.world.level.GrassColor;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoublePlantBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.StemBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public class BlockColors {
-   private static final int NO_COLOR = -1;
-   private final IdList providers = new IdList(32);
-   private final Map properties = Maps.newHashMap();
+   private static final int DEFAULT = -1;
+   private final IdMapper<BlockColor> blockColors = new IdMapper<>(32);
+   private final Map<Block, Set<Property<?>>> coloringStates = Maps.newHashMap();
 
-   public static BlockColors create() {
-      BlockColors lv = new BlockColors();
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return world != null && pos != null ? BiomeColors.getGrassColor(world, state.get(TallPlantBlock.HALF) == DoubleBlockHalf.UPPER ? pos.down() : pos) : GrassColors.getDefaultColor();
+   public static BlockColors createDefault() {
+      BlockColors blockcolors = new BlockColors();
+      blockcolors.register((p_276233_, p_276234_, p_276235_, p_276236_) -> {
+         return p_276234_ != null && p_276235_ != null ? BiomeColors.getAverageGrassColor(p_276234_, p_276233_.getValue(DoublePlantBlock.HALF) == DoubleBlockHalf.UPPER ? p_276235_.below() : p_276235_) : GrassColor.getDefaultColor();
       }, Blocks.LARGE_FERN, Blocks.TALL_GRASS);
-      lv.registerColorProperty(TallPlantBlock.HALF, Blocks.LARGE_FERN, Blocks.TALL_GRASS);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return world != null && pos != null ? BiomeColors.getGrassColor(world, pos) : GrassColors.getDefaultColor();
+      blockcolors.addColoringState(DoublePlantBlock.HALF, Blocks.LARGE_FERN, Blocks.TALL_GRASS);
+      blockcolors.register((p_276237_, p_276238_, p_276239_, p_276240_) -> {
+         return p_276238_ != null && p_276239_ != null ? BiomeColors.getAverageGrassColor(p_276238_, p_276239_) : GrassColor.getDefaultColor();
       }, Blocks.GRASS_BLOCK, Blocks.FERN, Blocks.GRASS, Blocks.POTTED_FERN);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         if (tintIndex != 0) {
-            return world != null && pos != null ? BiomeColors.getGrassColor(world, pos) : GrassColors.getDefaultColor();
+      blockcolors.register((p_276241_, p_276242_, p_276243_, p_276244_) -> {
+         if (p_276244_ != 0) {
+            return p_276242_ != null && p_276243_ != null ? BiomeColors.getAverageGrassColor(p_276242_, p_276243_) : GrassColor.getDefaultColor();
          } else {
             return -1;
          }
       }, Blocks.PINK_PETALS);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return FoliageColors.getSpruceColor();
+      blockcolors.register((p_92636_, p_92637_, p_92638_, p_92639_) -> {
+         return FoliageColor.getEvergreenColor();
       }, Blocks.SPRUCE_LEAVES);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return FoliageColors.getBirchColor();
+      blockcolors.register((p_92631_, p_92632_, p_92633_, p_92634_) -> {
+         return FoliageColor.getBirchColor();
       }, Blocks.BIRCH_LEAVES);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return world != null && pos != null ? BiomeColors.getFoliageColor(world, pos) : FoliageColors.getDefaultColor();
+      blockcolors.register((p_92626_, p_92627_, p_92628_, p_92629_) -> {
+         return p_92627_ != null && p_92628_ != null ? BiomeColors.getAverageFoliageColor(p_92627_, p_92628_) : FoliageColor.getDefaultColor();
       }, Blocks.OAK_LEAVES, Blocks.JUNGLE_LEAVES, Blocks.ACACIA_LEAVES, Blocks.DARK_OAK_LEAVES, Blocks.VINE, Blocks.MANGROVE_LEAVES);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return world != null && pos != null ? BiomeColors.getWaterColor(world, pos) : -1;
+      blockcolors.register((p_92621_, p_92622_, p_92623_, p_92624_) -> {
+         return p_92622_ != null && p_92623_ != null ? BiomeColors.getAverageWaterColor(p_92622_, p_92623_) : -1;
       }, Blocks.WATER, Blocks.BUBBLE_COLUMN, Blocks.WATER_CAULDRON);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return RedstoneWireBlock.getWireColor((Integer)state.get(RedstoneWireBlock.POWER));
+      blockcolors.register((p_92616_, p_92617_, p_92618_, p_92619_) -> {
+         return RedStoneWireBlock.getColorForPower(p_92616_.getValue(RedStoneWireBlock.POWER));
       }, Blocks.REDSTONE_WIRE);
-      lv.registerColorProperty(RedstoneWireBlock.POWER, Blocks.REDSTONE_WIRE);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return world != null && pos != null ? BiomeColors.getGrassColor(world, pos) : -1;
+      blockcolors.addColoringState(RedStoneWireBlock.POWER, Blocks.REDSTONE_WIRE);
+      blockcolors.register((p_92611_, p_92612_, p_92613_, p_92614_) -> {
+         return p_92612_ != null && p_92613_ != null ? BiomeColors.getAverageGrassColor(p_92612_, p_92613_) : -1;
       }, Blocks.SUGAR_CANE);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
+      blockcolors.register((p_92606_, p_92607_, p_92608_, p_92609_) -> {
          return 14731036;
       }, Blocks.ATTACHED_MELON_STEM, Blocks.ATTACHED_PUMPKIN_STEM);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         int j = (Integer)state.get(StemBlock.AGE);
-         int k = j * 32;
-         int l = 255 - j * 8;
-         int m = j * 4;
-         return k << 16 | l << 8 | m;
+      blockcolors.register((p_92601_, p_92602_, p_92603_, p_92604_) -> {
+         int i = p_92601_.getValue(StemBlock.AGE);
+         int j = i * 32;
+         int k = 255 - i * 8;
+         int l = i * 4;
+         return j << 16 | k << 8 | l;
       }, Blocks.MELON_STEM, Blocks.PUMPKIN_STEM);
-      lv.registerColorProperty(StemBlock.AGE, Blocks.MELON_STEM, Blocks.PUMPKIN_STEM);
-      lv.registerColorProvider((state, world, pos, tintIndex) -> {
-         return world != null && pos != null ? 2129968 : 7455580;
+      blockcolors.addColoringState(StemBlock.AGE, Blocks.MELON_STEM, Blocks.PUMPKIN_STEM);
+      blockcolors.register((p_92596_, p_92597_, p_92598_, p_92599_) -> {
+         return p_92597_ != null && p_92598_ != null ? 2129968 : 7455580;
       }, Blocks.LILY_PAD);
-      return lv;
+      return blockcolors;
    }
 
-   public int getParticleColor(BlockState state, World world, BlockPos pos) {
-      BlockColorProvider lv = (BlockColorProvider)this.providers.get(Registries.BLOCK.getRawId(state.getBlock()));
-      if (lv != null) {
-         return lv.getColor(state, (BlockRenderView)null, (BlockPos)null, 0);
+   public int getColor(BlockState p_92583_, Level p_92584_, BlockPos p_92585_) {
+      BlockColor blockcolor = this.blockColors.byId(BuiltInRegistries.BLOCK.getId(p_92583_.getBlock()));
+      if (blockcolor != null) {
+         return blockcolor.getColor(p_92583_, (BlockAndTintGetter)null, (BlockPos)null, 0);
       } else {
-         MapColor lv2 = state.getMapColor(world, pos);
-         return lv2 != null ? lv2.color : -1;
+         MapColor mapcolor = p_92583_.getMapColor(p_92584_, p_92585_);
+         return mapcolor != null ? mapcolor.col : -1;
       }
    }
 
-   public int getColor(BlockState state, @Nullable BlockRenderView world, @Nullable BlockPos pos, int tintIndex) {
-      BlockColorProvider lv = (BlockColorProvider)this.providers.get(Registries.BLOCK.getRawId(state.getBlock()));
-      return lv == null ? -1 : lv.getColor(state, world, pos, tintIndex);
+   public int getColor(BlockState p_92578_, @Nullable BlockAndTintGetter p_92579_, @Nullable BlockPos p_92580_, int p_92581_) {
+      BlockColor blockcolor = this.blockColors.byId(BuiltInRegistries.BLOCK.getId(p_92578_.getBlock()));
+      return blockcolor == null ? -1 : blockcolor.getColor(p_92578_, p_92579_, p_92580_, p_92581_);
    }
 
-   public void registerColorProvider(BlockColorProvider provider, Block... blocks) {
-      Block[] var3 = blocks;
-      int var4 = blocks.length;
-
-      for(int var5 = 0; var5 < var4; ++var5) {
-         Block lv = var3[var5];
-         this.providers.set(provider, Registries.BLOCK.getRawId(lv));
+   public void register(BlockColor p_92590_, Block... p_92591_) {
+      for(Block block : p_92591_) {
+         this.blockColors.addMapping(p_92590_, BuiltInRegistries.BLOCK.getId(block));
       }
 
    }
 
-   private void registerColorProperties(Set properties, Block... blocks) {
-      Block[] var3 = blocks;
-      int var4 = blocks.length;
-
-      for(int var5 = 0; var5 < var4; ++var5) {
-         Block lv = var3[var5];
-         this.properties.put(lv, properties);
+   private void addColoringStates(Set<Property<?>> p_92593_, Block... p_92594_) {
+      for(Block block : p_92594_) {
+         this.coloringStates.put(block, p_92593_);
       }
 
    }
 
-   private void registerColorProperty(Property property, Block... blocks) {
-      this.registerColorProperties(ImmutableSet.of(property), blocks);
+   private void addColoringState(Property<?> p_92587_, Block... p_92588_) {
+      this.addColoringStates(ImmutableSet.of(p_92587_), p_92588_);
    }
 
-   public Set getProperties(Block block) {
-      return (Set)this.properties.getOrDefault(block, ImmutableSet.of());
+   public Set<Property<?>> getColoringProperties(Block p_92576_) {
+      return this.coloringStates.getOrDefault(p_92576_, ImmutableSet.of());
    }
 }

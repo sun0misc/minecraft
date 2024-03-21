@@ -1,74 +1,63 @@
 package net.minecraft.client.particle;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.DefaultParticleType;
-import net.minecraft.particle.ParticleEffect;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
-public class SoulParticle extends AbstractSlowingParticle {
-   private final SpriteProvider spriteProvider;
-   protected boolean sculk;
+@OnlyIn(Dist.CLIENT)
+public class SoulParticle extends RisingParticle {
+   private final SpriteSet sprites;
+   protected boolean isGlowing;
 
-   SoulParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, SpriteProvider spriteProvider) {
-      super(world, x, y, z, velocityX, velocityY, velocityZ);
-      this.spriteProvider = spriteProvider;
+   SoulParticle(ClientLevel p_107717_, double p_107718_, double p_107719_, double p_107720_, double p_107721_, double p_107722_, double p_107723_, SpriteSet p_107724_) {
+      super(p_107717_, p_107718_, p_107719_, p_107720_, p_107721_, p_107722_, p_107723_);
+      this.sprites = p_107724_;
       this.scale(1.5F);
-      this.setSpriteForAge(spriteProvider);
+      this.setSpriteFromAge(p_107724_);
    }
 
-   public int getBrightness(float tint) {
-      return this.sculk ? 240 : super.getBrightness(tint);
+   public int getLightColor(float p_234080_) {
+      return this.isGlowing ? 240 : super.getLightColor(p_234080_);
    }
 
-   public ParticleTextureSheet getType() {
-      return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
    }
 
    public void tick() {
       super.tick();
-      this.setSpriteForAge(this.spriteProvider);
+      this.setSpriteFromAge(this.sprites);
    }
 
-   @Environment(EnvType.CLIENT)
-   public static class SculkSoulFactory implements ParticleFactory {
-      private final SpriteProvider spriteProvider;
+   @OnlyIn(Dist.CLIENT)
+   public static class EmissiveProvider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprite;
 
-      public SculkSoulFactory(SpriteProvider spriteProvider) {
-         this.spriteProvider = spriteProvider;
+      public EmissiveProvider(SpriteSet p_234083_) {
+         this.sprite = p_234083_;
       }
 
-      public Particle createParticle(DefaultParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
-         SoulParticle lv = new SoulParticle(arg2, d, e, f, g, h, i, this.spriteProvider);
-         lv.setAlpha(1.0F);
-         lv.sculk = true;
-         return lv;
-      }
-
-      // $FF: synthetic method
-      public Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
-         return this.createParticle((DefaultParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+      public Particle createParticle(SimpleParticleType p_234094_, ClientLevel p_234095_, double p_234096_, double p_234097_, double p_234098_, double p_234099_, double p_234100_, double p_234101_) {
+         SoulParticle soulparticle = new SoulParticle(p_234095_, p_234096_, p_234097_, p_234098_, p_234099_, p_234100_, p_234101_, this.sprite);
+         soulparticle.setAlpha(1.0F);
+         soulparticle.isGlowing = true;
+         return soulparticle;
       }
    }
 
-   @Environment(EnvType.CLIENT)
-   public static class Factory implements ParticleFactory {
-      private final SpriteProvider spriteProvider;
+   @OnlyIn(Dist.CLIENT)
+   public static class Provider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprite;
 
-      public Factory(SpriteProvider spriteProvider) {
-         this.spriteProvider = spriteProvider;
+      public Provider(SpriteSet p_107739_) {
+         this.sprite = p_107739_;
       }
 
-      public Particle createParticle(DefaultParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
-         SoulParticle lv = new SoulParticle(arg2, d, e, f, g, h, i, this.spriteProvider);
-         lv.setAlpha(1.0F);
-         return lv;
-      }
-
-      // $FF: synthetic method
-      public Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
-         return this.createParticle((DefaultParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+      public Particle createParticle(SimpleParticleType p_107750_, ClientLevel p_107751_, double p_107752_, double p_107753_, double p_107754_, double p_107755_, double p_107756_, double p_107757_) {
+         SoulParticle soulparticle = new SoulParticle(p_107751_, p_107752_, p_107753_, p_107754_, p_107755_, p_107756_, p_107757_, this.sprite);
+         soulparticle.setAlpha(1.0F);
+         return soulparticle;
       }
    }
 }

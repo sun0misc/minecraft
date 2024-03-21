@@ -1,33 +1,27 @@
 package net.minecraft.client.particle;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.DefaultParticleType;
-import net.minecraft.particle.ParticleEffect;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
-public class SpitParticle extends ExplosionSmokeParticle {
-   SpitParticle(ClientWorld arg, double d, double e, double f, double g, double h, double i, SpriteProvider arg2) {
-      super(arg, d, e, f, g, h, i, arg2);
-      this.gravityStrength = 0.5F;
+@OnlyIn(Dist.CLIENT)
+public class SpitParticle extends ExplodeParticle {
+   SpitParticle(ClientLevel p_107888_, double p_107889_, double p_107890_, double p_107891_, double p_107892_, double p_107893_, double p_107894_, SpriteSet p_107895_) {
+      super(p_107888_, p_107889_, p_107890_, p_107891_, p_107892_, p_107893_, p_107894_, p_107895_);
+      this.gravity = 0.5F;
    }
 
-   @Environment(EnvType.CLIENT)
-   public static class Factory implements ParticleFactory {
-      private final SpriteProvider spriteProvider;
+   @OnlyIn(Dist.CLIENT)
+   public static class Provider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprites;
 
-      public Factory(SpriteProvider spriteProvider) {
-         this.spriteProvider = spriteProvider;
+      public Provider(SpriteSet p_107909_) {
+         this.sprites = p_107909_;
       }
 
-      public Particle createParticle(DefaultParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
-         return new SpitParticle(arg2, d, e, f, g, h, i, this.spriteProvider);
-      }
-
-      // $FF: synthetic method
-      public Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
-         return this.createParticle((DefaultParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+      public Particle createParticle(SimpleParticleType p_107920_, ClientLevel p_107921_, double p_107922_, double p_107923_, double p_107924_, double p_107925_, double p_107926_, double p_107927_) {
+         return new SpitParticle(p_107921_, p_107922_, p_107923_, p_107924_, p_107925_, p_107926_, p_107927_, this.sprites);
       }
    }
 }

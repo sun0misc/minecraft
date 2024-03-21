@@ -24,14 +24,14 @@ public class ServerTickTimeEvent extends Event {
    @Timespan
    public final long averageTickDurationNanos;
 
-   public ServerTickTimeEvent(float averageTickMilliseconds) {
-      this.averageTickDurationNanos = (long)(1000000.0F * averageTickMilliseconds);
+   public ServerTickTimeEvent(float p_195602_) {
+      this.averageTickDurationNanos = (long)(1000000.0F * p_195602_);
    }
 
-   public static class Names {
+   public static class Fields {
       public static final String AVERAGE_TICK_DURATION = "averageTickDuration";
 
-      private Names() {
+      private Fields() {
       }
    }
 }

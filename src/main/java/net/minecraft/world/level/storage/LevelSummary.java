@@ -1,53 +1,53 @@
 package net.minecraft.world.level.storage;
 
 import java.nio.file.Path;
-import net.minecraft.GameVersion;
+import javax.annotation.Nullable;
+import net.minecraft.ChatFormatting;
 import net.minecraft.SharedConstants;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.StringHelper;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.level.LevelInfo;
+import net.minecraft.WorldVersion;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.StringUtil;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
 
-public class LevelSummary implements Comparable {
-   private final LevelInfo levelInfo;
-   private final SaveVersionInfo versionInfo;
-   private final String name;
-   private final boolean requiresConversion;
+public class LevelSummary implements Comparable<LevelSummary> {
+   private final LevelSettings settings;
+   private final LevelVersion levelVersion;
+   private final String levelId;
+   private final boolean requiresManualConversion;
    private final boolean locked;
    private final boolean experimental;
-   private final Path iconPath;
+   private final Path icon;
    @Nullable
-   private Text details;
+   private Component info;
 
-   public LevelSummary(LevelInfo levelInfo, SaveVersionInfo versionInfo, String name, boolean requiresConversion, boolean locked, boolean experimental, Path iconPath) {
-      this.levelInfo = levelInfo;
-      this.versionInfo = versionInfo;
-      this.name = name;
-      this.locked = locked;
-      this.experimental = experimental;
-      this.iconPath = iconPath;
-      this.requiresConversion = requiresConversion;
+   public LevelSummary(LevelSettings p_251217_, LevelVersion p_249179_, String p_250462_, boolean p_252096_, boolean p_251054_, boolean p_252271_, Path p_252001_) {
+      this.settings = p_251217_;
+      this.levelVersion = p_249179_;
+      this.levelId = p_250462_;
+      this.locked = p_251054_;
+      this.experimental = p_252271_;
+      this.icon = p_252001_;
+      this.requiresManualConversion = p_252096_;
    }
 
-   public String getName() {
-      return this.name;
+   public String getLevelId() {
+      return this.levelId;
    }
 
-   public String getDisplayName() {
-      return StringUtils.isEmpty(this.levelInfo.getLevelName()) ? this.name : this.levelInfo.getLevelName();
+   public String getLevelName() {
+      return StringUtils.isEmpty(this.settings.levelName()) ? this.levelId : this.settings.levelName();
    }
 
-   public Path getIconPath() {
-      return this.iconPath;
+   public Path getIcon() {
+      return this.icon;
    }
 
-   public boolean requiresConversion() {
-      return this.requiresConversion;
+   public boolean requiresManualConversion() {
+      return this.requiresManualConversion;
    }
 
    public boolean isExperimental() {
@@ -55,57 +55,57 @@ public class LevelSummary implements Comparable {
    }
 
    public long getLastPlayed() {
-      return this.versionInfo.getLastPlayed();
+      return this.levelVersion.lastPlayed();
    }
 
-   public int compareTo(LevelSummary arg) {
-      if (this.versionInfo.getLastPlayed() < arg.versionInfo.getLastPlayed()) {
+   public int compareTo(LevelSummary p_78360_) {
+      if (this.getLastPlayed() < p_78360_.getLastPlayed()) {
          return 1;
       } else {
-         return this.versionInfo.getLastPlayed() > arg.versionInfo.getLastPlayed() ? -1 : this.name.compareTo(arg.name);
+         return this.getLastPlayed() > p_78360_.getLastPlayed() ? -1 : this.levelId.compareTo(p_78360_.levelId);
       }
    }
 
-   public LevelInfo getLevelInfo() {
-      return this.levelInfo;
+   public LevelSettings getSettings() {
+      return this.settings;
    }
 
-   public GameMode getGameMode() {
-      return this.levelInfo.getGameMode();
+   public GameType getGameMode() {
+      return this.settings.gameType();
    }
 
    public boolean isHardcore() {
-      return this.levelInfo.isHardcore();
+      return this.settings.hardcore();
    }
 
    public boolean hasCheats() {
-      return this.levelInfo.areCommandsAllowed();
+      return this.settings.allowCommands();
    }
 
-   public MutableText getVersion() {
-      return StringHelper.isEmpty(this.versionInfo.getVersionName()) ? Text.translatable("selectWorld.versionUnknown") : Text.literal(this.versionInfo.getVersionName());
+   public MutableComponent getWorldVersionName() {
+      return StringUtil.isNullOrEmpty(this.levelVersion.minecraftVersionName()) ? Component.translatable("selectWorld.versionUnknown") : Component.literal(this.levelVersion.minecraftVersionName());
    }
 
-   public SaveVersionInfo getVersionInfo() {
-      return this.versionInfo;
+   public LevelVersion levelVersion() {
+      return this.levelVersion;
    }
 
-   public boolean isDifferentVersion() {
-      return this.isFutureLevel() || !SharedConstants.getGameVersion().isStable() && !this.versionInfo.isStable() || this.getConversionWarning().promptsBackup();
+   public boolean markVersionInList() {
+      return this.askToOpenWorld() || !SharedConstants.getCurrentVersion().isStable() && !this.levelVersion.snapshot() || this.backupStatus().shouldBackup();
    }
 
-   public boolean isFutureLevel() {
-      return this.versionInfo.getVersion().getId() > SharedConstants.getGameVersion().getSaveVersion().getId();
+   public boolean askToOpenWorld() {
+      return this.levelVersion.minecraftVersion().getVersion() > SharedConstants.getCurrentVersion().getDataVersion().getVersion();
    }
 
-   public ConversionWarning getConversionWarning() {
-      GameVersion lv = SharedConstants.getGameVersion();
-      int i = lv.getSaveVersion().getId();
-      int j = this.versionInfo.getVersion().getId();
-      if (!lv.isStable() && j < i) {
-         return LevelSummary.ConversionWarning.UPGRADE_TO_SNAPSHOT;
+   public LevelSummary.BackupStatus backupStatus() {
+      WorldVersion worldversion = SharedConstants.getCurrentVersion();
+      int i = worldversion.getDataVersion().getVersion();
+      int j = this.levelVersion.minecraftVersion().getVersion();
+      if (!worldversion.isStable() && j < i) {
+         return LevelSummary.BackupStatus.UPGRADE_TO_SNAPSHOT;
       } else {
-         return j > i ? LevelSummary.ConversionWarning.DOWNGRADE : LevelSummary.ConversionWarning.NONE;
+         return j > i ? LevelSummary.BackupStatus.DOWNGRADE : LevelSummary.BackupStatus.NONE;
       }
    }
 
@@ -113,93 +113,107 @@ public class LevelSummary implements Comparable {
       return this.locked;
    }
 
-   public boolean isUnavailable() {
-      if (!this.isLocked() && !this.requiresConversion()) {
-         return !this.isVersionAvailable();
+   public boolean isDisabled() {
+      if (!this.isLocked() && !this.requiresManualConversion()) {
+         return !this.isCompatible();
       } else {
          return true;
       }
    }
 
-   public boolean isVersionAvailable() {
-      return SharedConstants.getGameVersion().getSaveVersion().isAvailableTo(this.versionInfo.getVersion());
+   public boolean isCompatible() {
+      return SharedConstants.getCurrentVersion().getDataVersion().isCompatible(this.levelVersion.minecraftVersion());
    }
 
-   public Text getDetails() {
-      if (this.details == null) {
-         this.details = this.createDetails();
+   public Component getInfo() {
+      if (this.info == null) {
+         this.info = this.createInfo();
       }
 
-      return this.details;
+      return this.info;
    }
 
-   private Text createDetails() {
+   private Component createInfo() {
       if (this.isLocked()) {
-         return Text.translatable("selectWorld.locked").formatted(Formatting.RED);
-      } else if (this.requiresConversion()) {
-         return Text.translatable("selectWorld.conversion").formatted(Formatting.RED);
-      } else if (!this.isVersionAvailable()) {
-         return Text.translatable("selectWorld.incompatible_series").formatted(Formatting.RED);
+         return Component.translatable("selectWorld.locked").withStyle(ChatFormatting.RED);
+      } else if (this.requiresManualConversion()) {
+         return Component.translatable("selectWorld.conversion").withStyle(ChatFormatting.RED);
+      } else if (!this.isCompatible()) {
+         return Component.translatable("selectWorld.incompatible_series").withStyle(ChatFormatting.RED);
       } else {
-         MutableText lv = this.isHardcore() ? Text.empty().append((Text)Text.translatable("gameMode.hardcore").styled((style) -> {
-            return style.withColor(-65536);
-         })) : Text.translatable("gameMode." + this.getGameMode().getName());
+         MutableComponent mutablecomponent = this.isHardcore() ? Component.empty().append(Component.translatable("gameMode.hardcore").withStyle((p_265611_) -> {
+            return p_265611_.withColor(-65536);
+         })) : Component.translatable("gameMode." + this.getGameMode().getName());
          if (this.hasCheats()) {
-            lv.append(", ").append((Text)Text.translatable("selectWorld.cheats"));
+            mutablecomponent.append(", ").append(Component.translatable("selectWorld.cheats"));
          }
 
          if (this.isExperimental()) {
-            lv.append(", ").append((Text)Text.translatable("selectWorld.experimental").formatted(Formatting.YELLOW));
+            mutablecomponent.append(", ").append(Component.translatable("selectWorld.experimental").withStyle(ChatFormatting.YELLOW));
          }
 
-         MutableText lv2 = this.getVersion();
-         MutableText lv3 = Text.literal(", ").append((Text)Text.translatable("selectWorld.version")).append(ScreenTexts.SPACE);
-         if (this.isDifferentVersion()) {
-            lv3.append((Text)lv2.formatted(this.isFutureLevel() ? Formatting.RED : Formatting.ITALIC));
+         MutableComponent mutablecomponent1 = this.getWorldVersionName();
+         MutableComponent mutablecomponent2 = Component.literal(", ").append(Component.translatable("selectWorld.version")).append(CommonComponents.SPACE);
+         if (this.markVersionInList()) {
+            mutablecomponent2.append(mutablecomponent1.withStyle(this.askToOpenWorld() ? ChatFormatting.RED : ChatFormatting.ITALIC));
          } else {
-            lv3.append((Text)lv2);
+            mutablecomponent2.append(mutablecomponent1);
          }
 
-         lv.append((Text)lv3);
-         return lv;
+         mutablecomponent.append(mutablecomponent2);
+         return mutablecomponent;
       }
    }
 
-   // $FF: synthetic method
-   public int compareTo(Object other) {
-      return this.compareTo((LevelSummary)other);
-   }
-
-   public static enum ConversionWarning {
+   public static enum BackupStatus {
       NONE(false, false, ""),
       DOWNGRADE(true, true, "downgrade"),
       UPGRADE_TO_SNAPSHOT(true, false, "snapshot");
 
-      private final boolean backup;
-      private final boolean boldRedFormatting;
-      private final String translationKeySuffix;
+      private final boolean shouldBackup;
+      private final boolean severe;
+      private final String translationKey;
 
-      private ConversionWarning(boolean backup, boolean boldRedFormatting, String translationKeySuffix) {
-         this.backup = backup;
-         this.boldRedFormatting = boldRedFormatting;
-         this.translationKeySuffix = translationKeySuffix;
+      private BackupStatus(boolean p_164928_, boolean p_164929_, String p_164930_) {
+         this.shouldBackup = p_164928_;
+         this.severe = p_164929_;
+         this.translationKey = p_164930_;
       }
 
-      public boolean promptsBackup() {
-         return this.backup;
+      public boolean shouldBackup() {
+         return this.shouldBackup;
       }
 
-      public boolean needsBoldRedFormatting() {
-         return this.boldRedFormatting;
+      public boolean isSevere() {
+         return this.severe;
       }
 
-      public String getTranslationKeySuffix() {
-         return this.translationKeySuffix;
+      public String getTranslationKey() {
+         return this.translationKey;
+      }
+   }
+
+   public static class SymlinkLevelSummary extends LevelSummary {
+      public SymlinkLevelSummary(String p_289942_, Path p_289953_) {
+         super((LevelSettings)null, (LevelVersion)null, p_289942_, false, false, false, p_289953_);
       }
 
-      // $FF: synthetic method
-      private static ConversionWarning[] method_36792() {
-         return new ConversionWarning[]{NONE, DOWNGRADE, UPGRADE_TO_SNAPSHOT};
+      public String getLevelName() {
+         return this.getLevelId();
+      }
+
+      public Component getInfo() {
+         return Component.translatable("symlink_warning.title").withStyle((p_289961_) -> {
+            return p_289961_.withColor(-65536);
+         });
+      }
+
+      public long getLastPlayed() {
+         return -1L;
+      }
+
+      public boolean isDisabled() {
+         return false;
       }
    }
 }

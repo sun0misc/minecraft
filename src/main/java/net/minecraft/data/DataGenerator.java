@@ -7,86 +7,83 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import net.minecraft.Bootstrap;
-import net.minecraft.GameVersion;
+import net.minecraft.WorldVersion;
+import net.minecraft.server.Bootstrap;
 import org.slf4j.Logger;
 
 public class DataGenerator {
    private static final Logger LOGGER = LogUtils.getLogger();
-   private final Path outputPath;
-   private final DataOutput output;
-   final Set providerNames = new HashSet();
-   final Map runningProviders = new LinkedHashMap();
-   private final GameVersion gameVersion;
-   private final boolean ignoreCache;
+   private final Path rootOutputFolder;
+   private final PackOutput vanillaPackOutput;
+   final Set<String> allProviderIds = new HashSet<>();
+   final Map<String, DataProvider> providersToRun = new LinkedHashMap<>();
+   private final WorldVersion version;
+   private final boolean alwaysGenerate;
 
-   public DataGenerator(Path outputPath, GameVersion gameVersion, boolean ignoreCache) {
-      this.outputPath = outputPath;
-      this.output = new DataOutput(this.outputPath);
-      this.gameVersion = gameVersion;
-      this.ignoreCache = ignoreCache;
+   public DataGenerator(Path p_251724_, WorldVersion p_250554_, boolean p_251323_) {
+      this.rootOutputFolder = p_251724_;
+      this.vanillaPackOutput = new PackOutput(this.rootOutputFolder);
+      this.version = p_250554_;
+      this.alwaysGenerate = p_251323_;
    }
 
    public void run() throws IOException {
-      DataCache lv = new DataCache(this.outputPath, this.providerNames, this.gameVersion);
+      HashCache hashcache = new HashCache(this.rootOutputFolder, this.allProviderIds, this.version);
       Stopwatch stopwatch = Stopwatch.createStarted();
-      Stopwatch stopwatch2 = Stopwatch.createUnstarted();
-      this.runningProviders.forEach((name, provider) -> {
-         if (!this.ignoreCache && !lv.isVersionDifferent(name)) {
-            LOGGER.debug("Generator {} already run for version {}", name, this.gameVersion.getName());
+      Stopwatch stopwatch1 = Stopwatch.createUnstarted();
+      this.providersToRun.forEach((p_254418_, p_253750_) -> {
+         if (!this.alwaysGenerate && !hashcache.shouldRunInThisVersion(p_254418_)) {
+            LOGGER.debug("Generator {} already run for version {}", p_254418_, this.version.getName());
          } else {
-            LOGGER.info("Starting provider: {}", name);
-            stopwatch2.start();
-            Objects.requireNonNull(provider);
-            lv.store((DataCache.RunResult)lv.run(name, provider::run).join());
-            stopwatch2.stop();
-            LOGGER.info("{} finished after {} ms", name, stopwatch2.elapsed(TimeUnit.MILLISECONDS));
-            stopwatch2.reset();
+            LOGGER.info("Starting provider: {}", (Object)p_254418_);
+            stopwatch1.start();
+            hashcache.applyUpdate(hashcache.generateUpdate(p_254418_, p_253750_::run).join());
+            stopwatch1.stop();
+            LOGGER.info("{} finished after {} ms", p_254418_, stopwatch1.elapsed(TimeUnit.MILLISECONDS));
+            stopwatch1.reset();
          }
       });
-      LOGGER.info("All providers took: {} ms", stopwatch.elapsed(TimeUnit.MILLISECONDS));
-      lv.write();
+      LOGGER.info("All providers took: {} ms", (long)stopwatch.elapsed(TimeUnit.MILLISECONDS));
+      hashcache.purgeStaleAndWrite();
    }
 
-   public Pack createVanillaPack(boolean shouldRun) {
-      return new Pack(shouldRun, "vanilla", this.output);
+   public DataGenerator.PackGenerator getVanillaPack(boolean p_254422_) {
+      return new DataGenerator.PackGenerator(p_254422_, "vanilla", this.vanillaPackOutput);
    }
 
-   public Pack createVanillaSubPack(boolean shouldRun, String packName) {
-      Path path = this.output.resolvePath(DataOutput.OutputType.DATA_PACK).resolve("minecraft").resolve("datapacks").resolve(packName);
-      return new Pack(shouldRun, packName, new DataOutput(path));
+   public DataGenerator.PackGenerator getBuiltinDatapack(boolean p_253826_, String p_254134_) {
+      Path path = this.vanillaPackOutput.getOutputFolder(PackOutput.Target.DATA_PACK).resolve("minecraft").resolve("datapacks").resolve(p_254134_);
+      return new DataGenerator.PackGenerator(p_253826_, p_254134_, new PackOutput(path));
    }
 
    static {
-      Bootstrap.initialize();
+      Bootstrap.bootStrap();
    }
 
-   public class Pack {
-      private final boolean shouldRun;
-      private final String packName;
-      private final DataOutput output;
+   public class PackGenerator {
+      private final boolean toRun;
+      private final String providerPrefix;
+      private final PackOutput output;
 
-      Pack(boolean shouldRun, String name, DataOutput output) {
-         this.shouldRun = shouldRun;
-         this.packName = name;
-         this.output = output;
+      PackGenerator(boolean p_253884_, String p_254544_, PackOutput p_254363_) {
+         this.toRun = p_253884_;
+         this.providerPrefix = p_254544_;
+         this.output = p_254363_;
       }
 
-      public DataProvider addProvider(DataProvider.Factory factory) {
-         DataProvider lv = factory.create(this.output);
-         String var10000 = this.packName;
-         String string = var10000 + "/" + lv.getName();
-         if (!DataGenerator.this.providerNames.add(string)) {
-            throw new IllegalStateException("Duplicate provider: " + string);
+      public <T extends DataProvider> T addProvider(DataProvider.Factory<T> p_254382_) {
+         T t = p_254382_.create(this.output);
+         String s = this.providerPrefix + "/" + t.getName();
+         if (!DataGenerator.this.allProviderIds.add(s)) {
+            throw new IllegalStateException("Duplicate provider: " + s);
          } else {
-            if (this.shouldRun) {
-               DataGenerator.this.runningProviders.put(string, lv);
+            if (this.toRun) {
+               DataGenerator.this.providersToRun.put(s, t);
             }
 
-            return lv;
+            return t;
          }
       }
    }

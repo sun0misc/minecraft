@@ -10,126 +10,139 @@ import java.util.stream.Collectors;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import net.minecraft.GameVersion;
 import net.minecraft.SharedConstants;
-import net.minecraft.data.client.ModelProvider;
-import net.minecraft.data.dev.NbtProvider;
-import net.minecraft.data.report.BlockListProvider;
-import net.minecraft.data.report.CommandSyntaxProvider;
-import net.minecraft.data.report.DynamicRegistriesProvider;
-import net.minecraft.data.report.RegistryDumpProvider;
-import net.minecraft.data.server.BiomeParametersProvider;
-import net.minecraft.data.server.advancement.vanilla.VanillaAdvancementProviders;
-import net.minecraft.data.server.loottable.vanilla.VanillaLootTableProviders;
-import net.minecraft.data.server.recipe.BundleRecipeProvider;
-import net.minecraft.data.server.recipe.VanillaRecipeProvider;
-import net.minecraft.data.server.tag.TagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaBannerPatternTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaBiomeTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaBlockTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaCatVariantTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaDamageTypeTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaEntityTypeTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaFlatLevelGeneratorPresetTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaFluidTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaGameEventTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaInstrumentTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaItemTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaPaintingVariantTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaPointOfInterestTypeTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaStructureTagProvider;
-import net.minecraft.data.server.tag.vanilla.VanillaWorldPresetTagProvider;
-import net.minecraft.data.validate.StructureValidatorProvider;
+import net.minecraft.Util;
+import net.minecraft.WorldVersion;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.data.advancements.packs.VanillaAdvancementProvider;
+import net.minecraft.data.info.BiomeParametersDumpReport;
+import net.minecraft.data.info.BlockListReport;
+import net.minecraft.data.info.CommandsReport;
+import net.minecraft.data.info.RegistryDumpReport;
+import net.minecraft.data.loot.packs.TradeRebalanceLootTableProvider;
+import net.minecraft.data.loot.packs.VanillaLootTableProvider;
+import net.minecraft.data.metadata.PackMetadataGenerator;
+import net.minecraft.data.models.ModelProvider;
+import net.minecraft.data.recipes.packs.BundleRecipeProvider;
+import net.minecraft.data.recipes.packs.VanillaRecipeProvider;
+import net.minecraft.data.registries.RegistriesDatapackGenerator;
+import net.minecraft.data.registries.VanillaRegistries;
+import net.minecraft.data.structures.NbtToSnbt;
+import net.minecraft.data.structures.SnbtToNbt;
+import net.minecraft.data.structures.StructureUpdater;
+import net.minecraft.data.tags.BannerPatternTagsProvider;
+import net.minecraft.data.tags.BiomeTagsProvider;
+import net.minecraft.data.tags.CatVariantTagsProvider;
+import net.minecraft.data.tags.DamageTypeTagsProvider;
+import net.minecraft.data.tags.EntityTypeTagsProvider;
+import net.minecraft.data.tags.FlatLevelGeneratorPresetTagsProvider;
+import net.minecraft.data.tags.FluidTagsProvider;
+import net.minecraft.data.tags.GameEventTagsProvider;
+import net.minecraft.data.tags.InstrumentTagsProvider;
+import net.minecraft.data.tags.PaintingVariantTagsProvider;
+import net.minecraft.data.tags.PoiTypeTagsProvider;
+import net.minecraft.data.tags.StructureTagsProvider;
+import net.minecraft.data.tags.TagsProvider;
+import net.minecraft.data.tags.TradeRebalanceStructureTagsProvider;
+import net.minecraft.data.tags.VanillaBlockTagsProvider;
+import net.minecraft.data.tags.VanillaItemTagsProvider;
+import net.minecraft.data.tags.WorldPresetTagsProvider;
+import net.minecraft.network.chat.Component;
 import net.minecraft.obfuscate.DontObfuscate;
-import net.minecraft.registry.BuiltinRegistries;
-import net.minecraft.resource.featuretoggle.FeatureFlags;
-import net.minecraft.resource.featuretoggle.FeatureSet;
-import net.minecraft.text.Text;
-import net.minecraft.util.Util;
+import net.minecraft.world.flag.FeatureFlagSet;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 
 public class Main {
    @DontObfuscate
-   public static void main(String[] args) throws IOException {
-      SharedConstants.createGameVersion();
-      OptionParser optionParser = new OptionParser();
-      OptionSpec optionSpec = optionParser.accepts("help", "Show the help menu").forHelp();
-      OptionSpec optionSpec2 = optionParser.accepts("server", "Include server generators");
-      OptionSpec optionSpec3 = optionParser.accepts("client", "Include client generators");
-      OptionSpec optionSpec4 = optionParser.accepts("dev", "Include development tools");
-      OptionSpec optionSpec5 = optionParser.accepts("reports", "Include data reports");
-      OptionSpec optionSpec6 = optionParser.accepts("validate", "Validate inputs");
-      OptionSpec optionSpec7 = optionParser.accepts("all", "Include all generators");
-      OptionSpec optionSpec8 = optionParser.accepts("output", "Output folder").withRequiredArg().defaultsTo("generated", new String[0]);
-      OptionSpec optionSpec9 = optionParser.accepts("input", "Input folder").withRequiredArg();
-      OptionSet optionSet = optionParser.parse(args);
-      if (!optionSet.has(optionSpec) && optionSet.hasOptions()) {
-         Path path = Paths.get((String)optionSpec8.value(optionSet));
-         boolean bl = optionSet.has(optionSpec7);
-         boolean bl2 = bl || optionSet.has(optionSpec3);
-         boolean bl3 = bl || optionSet.has(optionSpec2);
-         boolean bl4 = bl || optionSet.has(optionSpec4);
-         boolean bl5 = bl || optionSet.has(optionSpec5);
-         boolean bl6 = bl || optionSet.has(optionSpec6);
-         DataGenerator lv = create(path, (Collection)optionSet.valuesOf(optionSpec9).stream().map((input) -> {
-            return Paths.get(input);
-         }).collect(Collectors.toList()), bl2, bl3, bl4, bl5, bl6, SharedConstants.getGameVersion(), true);
-         lv.run();
+   public static void main(String[] p_129669_) throws IOException {
+      SharedConstants.tryDetectVersion();
+      OptionParser optionparser = new OptionParser();
+      OptionSpec<Void> optionspec = optionparser.accepts("help", "Show the help menu").forHelp();
+      OptionSpec<Void> optionspec1 = optionparser.accepts("server", "Include server generators");
+      OptionSpec<Void> optionspec2 = optionparser.accepts("client", "Include client generators");
+      OptionSpec<Void> optionspec3 = optionparser.accepts("dev", "Include development tools");
+      OptionSpec<Void> optionspec4 = optionparser.accepts("reports", "Include data reports");
+      OptionSpec<Void> optionspec5 = optionparser.accepts("validate", "Validate inputs");
+      OptionSpec<Void> optionspec6 = optionparser.accepts("all", "Include all generators");
+      OptionSpec<String> optionspec7 = optionparser.accepts("output", "Output folder").withRequiredArg().defaultsTo("generated");
+      OptionSpec<String> optionspec8 = optionparser.accepts("input", "Input folder").withRequiredArg();
+      OptionSet optionset = optionparser.parse(p_129669_);
+      if (!optionset.has(optionspec) && optionset.hasOptions()) {
+         Path path = Paths.get(optionspec7.value(optionset));
+         boolean flag = optionset.has(optionspec6);
+         boolean flag1 = flag || optionset.has(optionspec2);
+         boolean flag2 = flag || optionset.has(optionspec1);
+         boolean flag3 = flag || optionset.has(optionspec3);
+         boolean flag4 = flag || optionset.has(optionspec4);
+         boolean flag5 = flag || optionset.has(optionspec5);
+         DataGenerator datagenerator = createStandardGenerator(path, optionset.valuesOf(optionspec8).stream().map((p_129659_) -> {
+            return Paths.get(p_129659_);
+         }).collect(Collectors.toList()), flag1, flag2, flag3, flag4, flag5, SharedConstants.getCurrentVersion(), true);
+         datagenerator.run();
       } else {
-         optionParser.printHelpOn(System.out);
+         optionparser.printHelpOn(System.out);
       }
    }
 
-   private static DataProvider.Factory toFactory(BiFunction baseFactory, CompletableFuture registryLookupFuture) {
-      return (output) -> {
-         return (DataProvider)baseFactory.apply(output, registryLookupFuture);
+   private static <T extends DataProvider> DataProvider.Factory<T> bindRegistries(BiFunction<PackOutput, CompletableFuture<HolderLookup.Provider>, T> p_256618_, CompletableFuture<HolderLookup.Provider> p_256515_) {
+      return (p_255476_) -> {
+         return p_256618_.apply(p_255476_, p_256515_);
       };
    }
 
-   public static DataGenerator create(Path output, Collection inputs, boolean includeClient, boolean includeServer, boolean includeDev, boolean includeReports, boolean validate, GameVersion gameVersion, boolean ignoreCache) {
-      DataGenerator lv = new DataGenerator(output, gameVersion, ignoreCache);
-      DataGenerator.Pack lv2 = lv.createVanillaPack(includeClient || includeServer);
-      lv2.addProvider((outputx) -> {
-         return (new SnbtProvider(outputx, inputs)).addWriter(new StructureValidatorProvider());
+   public static DataGenerator createStandardGenerator(Path p_236680_, Collection<Path> p_236681_, boolean p_236682_, boolean p_236683_, boolean p_236684_, boolean p_236685_, boolean p_236686_, WorldVersion p_236687_, boolean p_236688_) {
+      DataGenerator datagenerator = new DataGenerator(p_236680_, p_236687_, p_236688_);
+      DataGenerator.PackGenerator datagenerator$packgenerator = datagenerator.getVanillaPack(p_236682_ || p_236683_);
+      datagenerator$packgenerator.addProvider((p_253388_) -> {
+         return (new SnbtToNbt(p_253388_, p_236681_)).addFilter(new StructureUpdater());
       });
-      CompletableFuture completableFuture = CompletableFuture.supplyAsync(BuiltinRegistries::createWrapperLookup, Util.getMainWorkerExecutor());
-      DataGenerator.Pack lv3 = lv.createVanillaPack(includeClient);
-      lv3.addProvider(ModelProvider::new);
-      DataGenerator.Pack lv4 = lv.createVanillaPack(includeServer);
-      lv4.addProvider(toFactory(DynamicRegistriesProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaAdvancementProviders::createVanillaProvider, completableFuture));
-      lv4.addProvider(VanillaLootTableProviders::createVanillaProvider);
-      lv4.addProvider(VanillaRecipeProvider::new);
-      TagProvider lv5 = (TagProvider)lv4.addProvider(toFactory(VanillaBlockTagProvider::new, completableFuture));
-      TagProvider lv6 = (TagProvider)lv4.addProvider((outputx) -> {
-         return new VanillaItemTagProvider(outputx, completableFuture, lv5.getTagLookupFuture());
+      CompletableFuture<HolderLookup.Provider> completablefuture = CompletableFuture.supplyAsync(VanillaRegistries::createLookup, Util.backgroundExecutor());
+      DataGenerator.PackGenerator datagenerator$packgenerator1 = datagenerator.getVanillaPack(p_236682_);
+      datagenerator$packgenerator1.addProvider(ModelProvider::new);
+      DataGenerator.PackGenerator datagenerator$packgenerator2 = datagenerator.getVanillaPack(p_236683_);
+      datagenerator$packgenerator2.addProvider(bindRegistries(RegistriesDatapackGenerator::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(VanillaAdvancementProvider::create, completablefuture));
+      datagenerator$packgenerator2.addProvider(VanillaLootTableProvider::create);
+      datagenerator$packgenerator2.addProvider(VanillaRecipeProvider::new);
+      TagsProvider<Block> tagsprovider1 = datagenerator$packgenerator2.addProvider(bindRegistries(VanillaBlockTagsProvider::new, completablefuture));
+      TagsProvider<Item> tagsprovider = datagenerator$packgenerator2.addProvider((p_274753_) -> {
+         return new VanillaItemTagsProvider(p_274753_, completablefuture, tagsprovider1.contentsGetter());
       });
-      lv4.addProvider(toFactory(VanillaBannerPatternTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaBiomeTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaCatVariantTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaDamageTypeTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaEntityTypeTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaFlatLevelGeneratorPresetTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaFluidTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaGameEventTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaInstrumentTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaPaintingVariantTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaPointOfInterestTypeTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaStructureTagProvider::new, completableFuture));
-      lv4.addProvider(toFactory(VanillaWorldPresetTagProvider::new, completableFuture));
-      lv4 = lv.createVanillaPack(includeDev);
-      lv4.addProvider((outputx) -> {
-         return new NbtProvider(outputx, inputs);
+      datagenerator$packgenerator2.addProvider(bindRegistries(BannerPatternTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(BiomeTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(CatVariantTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(DamageTypeTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(EntityTypeTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(FlatLevelGeneratorPresetTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(FluidTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(GameEventTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(InstrumentTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(PaintingVariantTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(PoiTypeTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(StructureTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(bindRegistries(WorldPresetTagsProvider::new, completablefuture));
+      datagenerator$packgenerator2 = datagenerator.getVanillaPack(p_236684_);
+      datagenerator$packgenerator2.addProvider((p_253386_) -> {
+         return new NbtToSnbt(p_253386_, p_236681_);
       });
-      lv4 = lv.createVanillaPack(includeReports);
-      lv4.addProvider(toFactory(BiomeParametersProvider::new, completableFuture));
-      lv4.addProvider(BlockListProvider::new);
-      lv4.addProvider(toFactory(CommandSyntaxProvider::new, completableFuture));
-      lv4.addProvider(RegistryDumpProvider::new);
-      lv4 = lv.createVanillaSubPack(includeServer, "bundle");
-      lv4.addProvider(BundleRecipeProvider::new);
-      lv4.addProvider((outputx) -> {
-         return MetadataProvider.create(outputx, Text.translatable("dataPack.bundle.description"), FeatureSet.of(FeatureFlags.BUNDLE));
+      datagenerator$packgenerator2 = datagenerator.getVanillaPack(p_236685_);
+      datagenerator$packgenerator2.addProvider(bindRegistries(BiomeParametersDumpReport::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(BlockListReport::new);
+      datagenerator$packgenerator2.addProvider(bindRegistries(CommandsReport::new, completablefuture));
+      datagenerator$packgenerator2.addProvider(RegistryDumpReport::new);
+      datagenerator$packgenerator2 = datagenerator.getBuiltinDatapack(p_236683_, "bundle");
+      datagenerator$packgenerator2.addProvider(BundleRecipeProvider::new);
+      datagenerator$packgenerator2.addProvider((p_253392_) -> {
+         return PackMetadataGenerator.forFeaturePack(p_253392_, Component.translatable("dataPack.bundle.description"), FeatureFlagSet.of(FeatureFlags.BUNDLE));
       });
-      return lv;
+      datagenerator$packgenerator2 = datagenerator.getBuiltinDatapack(p_236683_, "trade_rebalance");
+      datagenerator$packgenerator2.addProvider((p_296336_) -> {
+         return PackMetadataGenerator.forFeaturePack(p_296336_, Component.translatable("dataPack.trade_rebalance.description"), FeatureFlagSet.of(FeatureFlags.TRADE_REBALANCE));
+      });
+      datagenerator$packgenerator2.addProvider(TradeRebalanceLootTableProvider::create);
+      datagenerator$packgenerator2.addProvider(bindRegistries(TradeRebalanceStructureTagsProvider::new, completablefuture));
+      return datagenerator;
    }
 }

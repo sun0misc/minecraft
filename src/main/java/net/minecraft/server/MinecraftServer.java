@@ -23,15 +23,12 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.net.Proxy;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.security.KeyPair;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -46,616 +43,577 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
+import net.minecraft.CrashReport;
+import net.minecraft.ReportedException;
 import net.minecraft.SharedConstants;
-import net.minecraft.command.DataCommandStorage;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.boss.BossBarManager;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.loot.LootManager;
-import net.minecraft.network.encryption.NetworkEncryptionException;
-import net.minecraft.network.encryption.NetworkEncryptionUtils;
-import net.minecraft.network.encryption.SignatureVerifier;
-import net.minecraft.network.message.MessageDecorator;
-import net.minecraft.network.message.MessageType;
-import net.minecraft.network.packet.s2c.play.DifficultyS2CPacket;
-import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
+import net.minecraft.SystemReport;
+import net.minecraft.Util;
+import net.minecraft.commands.CommandSource;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderGetter;
+import net.minecraft.core.LayeredRegistryAccess;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.data.worldgen.features.MiscOverworldFeatures;
+import net.minecraft.gametest.framework.GameTestTicker;
+import net.minecraft.network.chat.ChatDecorator;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundChangeDifficultyPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
+import net.minecraft.network.protocol.status.ServerStatus;
 import net.minecraft.obfuscate.DontObfuscate;
-import net.minecraft.recipe.RecipeManager;
-import net.minecraft.registry.CombinedDynamicRegistries;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryEntryLookup;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.ServerDynamicRegistryType;
-import net.minecraft.resource.DataConfiguration;
-import net.minecraft.resource.DataPackSettings;
-import net.minecraft.resource.LifecycledResourceManager;
-import net.minecraft.resource.LifecycledResourceManagerImpl;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourcePackManager;
-import net.minecraft.resource.ResourcePackProfile;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.resource.featuretoggle.FeatureFlags;
-import net.minecraft.resource.featuretoggle.FeatureSet;
-import net.minecraft.scoreboard.ServerScoreboard;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.CommandOutput;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.filter.TextStream;
-import net.minecraft.server.function.CommandFunctionManager;
-import net.minecraft.server.network.DemoServerPlayerInteractionManager;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.network.ServerPlayerInteractionManager;
-import net.minecraft.server.network.SpawnLocating;
-import net.minecraft.server.world.ChunkTicketType;
-import net.minecraft.server.world.ServerChunkManager;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.structure.StructureTemplateManager;
-import net.minecraft.test.TestManager;
-import net.minecraft.text.Text;
-import net.minecraft.util.ApiServices;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.MetricsData;
-import net.minecraft.util.ModStatus;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.bossevents.CustomBossEvents;
+import net.minecraft.server.level.DemoMode;
+import net.minecraft.server.level.PlayerRespawnLogic;
+import net.minecraft.server.level.ServerChunkCache;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerPlayerGameMode;
+import net.minecraft.server.level.TicketType;
+import net.minecraft.server.level.progress.ChunkProgressListener;
+import net.minecraft.server.level.progress.ChunkProgressListenerFactory;
+import net.minecraft.server.network.ServerConnectionListener;
+import net.minecraft.server.network.TextFilter;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.repository.PackRepository;
+import net.minecraft.server.packs.resources.CloseableResourceManager;
+import net.minecraft.server.packs.resources.MultiPackResourceManager;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.players.GameProfileCache;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.server.players.ServerOpListEntry;
+import net.minecraft.server.players.UserWhiteList;
+import net.minecraft.util.Crypt;
+import net.minecraft.util.CryptException;
+import net.minecraft.util.ModCheck;
+import net.minecraft.util.Mth;
+import net.minecraft.util.NativeModuleLister;
 import net.minecraft.util.ProgressListener;
-import net.minecraft.util.SystemDetails;
-import net.minecraft.util.TickDurationMonitor;
+import net.minecraft.util.RandomSource;
+import net.minecraft.util.SignatureValidator;
 import net.minecraft.util.Unit;
-import net.minecraft.util.UserCache;
-import net.minecraft.util.Util;
-import net.minecraft.util.WinNativeModuleUtil;
-import net.minecraft.util.WorldSavePath;
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.crash.CrashReport;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.profiler.DebugRecorder;
-import net.minecraft.util.profiler.DummyRecorder;
-import net.minecraft.util.profiler.EmptyProfileResult;
-import net.minecraft.util.profiler.ProfileResult;
-import net.minecraft.util.profiler.Profiler;
-import net.minecraft.util.profiler.RecordDumper;
-import net.minecraft.util.profiler.Recorder;
-import net.minecraft.util.profiler.ServerSamplerSource;
-import net.minecraft.util.profiling.jfr.Finishable;
-import net.minecraft.util.profiling.jfr.FlightProfiler;
-import net.minecraft.util.thread.ReentrantThreadExecutor;
-import net.minecraft.village.ZombieSiegeManager;
+import net.minecraft.util.profiling.EmptyProfileResults;
+import net.minecraft.util.profiling.ProfileResults;
+import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.util.profiling.ResultField;
+import net.minecraft.util.profiling.SingleTickProfiler;
+import net.minecraft.util.profiling.jfr.JvmProfiler;
+import net.minecraft.util.profiling.jfr.callback.ProfiledDuration;
+import net.minecraft.util.profiling.metrics.profiling.ActiveMetricsRecorder;
+import net.minecraft.util.profiling.metrics.profiling.InactiveMetricsRecorder;
+import net.minecraft.util.profiling.metrics.profiling.MetricsRecorder;
+import net.minecraft.util.profiling.metrics.profiling.ServerMetricsSamplersProvider;
+import net.minecraft.util.profiling.metrics.storage.MetricsPersister;
+import net.minecraft.util.thread.ReentrantBlockableEventLoop;
 import net.minecraft.world.Difficulty;
-import net.minecraft.world.ForcedChunkState;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.GameRules;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.PersistentStateManager;
-import net.minecraft.world.SaveProperties;
-import net.minecraft.world.WanderingTraderManager;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldProperties;
-import net.minecraft.world.WorldSaveHandler;
-import net.minecraft.world.biome.source.BiomeAccess;
-import net.minecraft.world.border.WorldBorder;
-import net.minecraft.world.border.WorldBorderListener;
-import net.minecraft.world.dimension.DimensionOptions;
-import net.minecraft.world.gen.GeneratorOptions;
-import net.minecraft.world.gen.feature.ConfiguredFeature;
-import net.minecraft.world.gen.feature.MiscConfiguredFeatures;
-import net.minecraft.world.level.LevelInfo;
-import net.minecraft.world.level.ServerWorldProperties;
-import net.minecraft.world.level.UnmodifiableLevelProperties;
-import net.minecraft.world.level.storage.LevelStorage;
-import net.minecraft.world.spawner.CatSpawner;
-import net.minecraft.world.spawner.PatrolSpawner;
-import net.minecraft.world.spawner.PhantomSpawner;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.RandomSequences;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.village.VillageSiege;
+import net.minecraft.world.entity.npc.CatSpawner;
+import net.minecraft.world.entity.npc.WanderingTraderSpawner;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.flag.FeatureFlagSet;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.CustomSpawner;
+import net.minecraft.world.level.DataPackConfig;
+import net.minecraft.world.level.ForcedChunksSavedData;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.border.BorderChangeListener;
+import net.minecraft.world.level.border.WorldBorder;
+import net.minecraft.world.level.dimension.LevelStem;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.PatrolSpawner;
+import net.minecraft.world.level.levelgen.PhantomSpawner;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.level.storage.CommandStorage;
+import net.minecraft.world.level.storage.DerivedLevelData;
+import net.minecraft.world.level.storage.DimensionDataStorage;
+import net.minecraft.world.level.storage.LevelData;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.world.level.storage.PlayerDataStorage;
+import net.minecraft.world.level.storage.ServerLevelData;
+import net.minecraft.world.level.storage.WorldData;
+import net.minecraft.world.level.storage.loot.LootDataManager;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 
-public abstract class MinecraftServer extends ReentrantThreadExecutor implements CommandOutput, AutoCloseable {
+public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTask> implements ServerInfo, CommandSource, AutoCloseable {
    private static final Logger LOGGER = LogUtils.getLogger();
-   public static final String VANILLA = "vanilla";
-   private static final float field_33212 = 0.8F;
-   private static final int field_33213 = 100;
-   public static final int field_33206 = 50;
-   private static final int field_33215 = 2000;
-   private static final int field_33216 = 15000;
-   private static final long PLAYER_SAMPLE_UPDATE_INTERVAL = 5000000000L;
-   private static final int field_33218 = 12;
-   public static final int START_TICKET_CHUNK_RADIUS = 11;
-   private static final int START_TICKET_CHUNKS = 441;
-   private static final int field_33220 = 6000;
-   private static final int field_33221 = 3;
-   public static final int MAX_WORLD_BORDER_RADIUS = 29999984;
-   public static final LevelInfo DEMO_LEVEL_INFO;
-   private static final long MILLISECONDS_PER_TICK = 50L;
-   public static final GameProfile ANONYMOUS_PLAYER_PROFILE;
-   protected final LevelStorage.Session session;
-   protected final WorldSaveHandler saveHandler;
-   private final List serverGuiTickables = Lists.newArrayList();
-   private Recorder recorder;
-   private Profiler profiler;
-   private Consumer recorderResultConsumer;
-   private Consumer recorderDumpConsumer;
-   private boolean needsRecorderSetup;
+   public static final String VANILLA_BRAND = "vanilla";
+   private static final float AVERAGE_TICK_TIME_SMOOTHING = 0.8F;
+   private static final int TICK_STATS_SPAN = 100;
+   public static final int MS_PER_TICK = 50;
+   private static final int OVERLOADED_THRESHOLD = 2000;
+   private static final int OVERLOADED_WARNING_INTERVAL = 15000;
+   private static final long STATUS_EXPIRE_TIME_NS = 5000000000L;
+   private static final int MAX_STATUS_PLAYER_SAMPLE = 12;
+   public static final int START_CHUNK_RADIUS = 11;
+   private static final int START_TICKING_CHUNK_COUNT = 441;
+   private static final int AUTOSAVE_INTERVAL = 6000;
+   private static final int MAX_TICK_LATENCY = 3;
+   public static final int ABSOLUTE_MAX_WORLD_SIZE = 29999984;
+   public static final LevelSettings DEMO_SETTINGS = new LevelSettings("Demo World", GameType.SURVIVAL, false, Difficulty.NORMAL, false, new GameRules(), WorldDataConfiguration.DEFAULT);
+   private static final long DELAYED_TASKS_TICK_EXTENSION = 50L;
+   public static final GameProfile ANONYMOUS_PLAYER_PROFILE = new GameProfile(Util.NIL_UUID, "Anonymous Player");
+   protected final LevelStorageSource.LevelStorageAccess storageSource;
+   protected final PlayerDataStorage playerDataStorage;
+   private final List<Runnable> tickables = Lists.newArrayList();
+   private MetricsRecorder metricsRecorder = InactiveMetricsRecorder.INSTANCE;
+   private ProfilerFiller profiler = this.metricsRecorder.getProfiler();
+   private Consumer<ProfileResults> onMetricsRecordingStopped = (p_177903_) -> {
+      this.stopRecordingMetrics();
+   };
+   private Consumer<Path> onMetricsRecordingFinished = (p_177954_) -> {
+   };
+   private boolean willStartRecordingMetrics;
    @Nullable
-   private DebugStart debugStart;
-   private boolean needsDebugSetup;
-   private final ServerNetworkIo networkIo;
-   private final WorldGenerationProgressListenerFactory worldGenerationProgressListenerFactory;
+   private MinecraftServer.TimeProfiler debugCommandProfiler;
+   private boolean debugCommandProfilerDelayStart;
+   private final ServerConnectionListener connection;
+   private final ChunkProgressListenerFactory progressListenerFactory;
    @Nullable
-   private ServerMetadata metadata;
+   private ServerStatus status;
    @Nullable
-   private ServerMetadata.Favicon favicon;
-   private final Random random;
-   private final DataFixer dataFixer;
-   private String serverIp;
-   private int serverPort;
-   private final CombinedDynamicRegistries combinedDynamicRegistries;
-   private final Map worlds;
-   private PlayerManager playerManager;
-   private volatile boolean running;
+   private ServerStatus.Favicon statusIcon;
+   private final RandomSource random = RandomSource.create();
+   private final DataFixer fixerUpper;
+   private String localIp;
+   private int port = -1;
+   private final LayeredRegistryAccess<RegistryLayer> registries;
+   private final Map<ResourceKey<Level>, ServerLevel> levels = Maps.newLinkedHashMap();
+   private PlayerList playerList;
+   private volatile boolean running = true;
    private boolean stopped;
-   private int ticks;
+   private int tickCount;
    protected final Proxy proxy;
    private boolean onlineMode;
    private boolean preventProxyConnections;
-   private boolean pvpEnabled;
-   private boolean flightEnabled;
+   private boolean pvp;
+   private boolean allowFlight;
    @Nullable
    private String motd;
    private int playerIdleTimeout;
-   public final long[] lastTickLengths;
+   public final long[] tickTimes = new long[100];
    @Nullable
    private KeyPair keyPair;
    @Nullable
-   private GameProfile hostProfile;
-   private boolean demo;
-   private volatile boolean loading;
-   private long lastTimeReference;
-   protected final ApiServices apiServices;
-   private long lastPlayerSampleUpdate;
+   private GameProfile singleplayerProfile;
+   private boolean isDemo;
+   private volatile boolean isReady;
+   private long lastOverloadWarning;
+   protected final Services services;
+   private long lastServerStatus;
    private final Thread serverThread;
-   private long timeReference;
-   private long nextTickTimestamp;
-   private boolean waitingForNextTick;
-   private final ResourcePackManager dataPackManager;
-   private final ServerScoreboard scoreboard;
+   private long nextTickTime = Util.getMillis();
+   private long delayedTasksMaxNextTickTime;
+   private boolean mayHaveDelayedTasks;
+   private final PackRepository packRepository;
+   private final ServerScoreboard scoreboard = new ServerScoreboard(this);
    @Nullable
-   private DataCommandStorage dataCommandStorage;
-   private final BossBarManager bossBarManager;
-   private final CommandFunctionManager commandFunctionManager;
-   private final MetricsData metricsData;
+   private CommandStorage commandStorage;
+   private final CustomBossEvents customBossEvents = new CustomBossEvents();
+   private final ServerFunctionManager functionManager;
    private boolean enforceWhitelist;
-   private float tickTime;
-   private final Executor workerExecutor;
+   private float averageTickTime;
+   private final Executor executor;
    @Nullable
    private String serverId;
-   private ResourceManagerHolder resourceManagerHolder;
+   private MinecraftServer.ReloadableResources resources;
    private final StructureTemplateManager structureTemplateManager;
-   protected final SaveProperties saveProperties;
-   private volatile boolean saving;
+   protected final WorldData worldData;
+   private volatile boolean isSaving;
 
-   public static MinecraftServer startServer(Function serverFactory) {
-      AtomicReference atomicReference = new AtomicReference();
+   public static <S extends MinecraftServer> S spin(Function<Thread, S> p_129873_) {
+      AtomicReference<S> atomicreference = new AtomicReference<>();
       Thread thread = new Thread(() -> {
-         ((MinecraftServer)atomicReference.get()).runServer();
+         atomicreference.get().runServer();
       }, "Server thread");
-      thread.setUncaughtExceptionHandler((threadx, throwable) -> {
-         LOGGER.error("Uncaught exception in server thread", throwable);
+      thread.setUncaughtExceptionHandler((p_177909_, p_177910_) -> {
+         LOGGER.error("Uncaught exception in server thread", p_177910_);
       });
       if (Runtime.getRuntime().availableProcessors() > 4) {
          thread.setPriority(8);
       }
 
-      MinecraftServer minecraftServer = (MinecraftServer)serverFactory.apply(thread);
-      atomicReference.set(minecraftServer);
+      S s = p_129873_.apply(thread);
+      atomicreference.set(s);
       thread.start();
-      return minecraftServer;
+      return s;
    }
 
-   public MinecraftServer(Thread serverThread, LevelStorage.Session session, ResourcePackManager dataPackManager, SaveLoader saveLoader, Proxy proxy, DataFixer dataFixer, ApiServices apiServices, WorldGenerationProgressListenerFactory worldGenerationProgressListenerFactory) {
+   public MinecraftServer(Thread p_236723_, LevelStorageSource.LevelStorageAccess p_236724_, PackRepository p_236725_, WorldStem p_236726_, Proxy p_236727_, DataFixer p_236728_, Services p_236729_, ChunkProgressListenerFactory p_236730_) {
       super("Server");
-      this.recorder = DummyRecorder.INSTANCE;
-      this.profiler = this.recorder.getProfiler();
-      this.recorderResultConsumer = (profileResult) -> {
-         this.resetRecorder();
-      };
-      this.recorderDumpConsumer = (path) -> {
-      };
-      this.random = Random.create();
-      this.serverPort = -1;
-      this.worlds = Maps.newLinkedHashMap();
-      this.running = true;
-      this.lastTickLengths = new long[100];
-      this.timeReference = Util.getMeasuringTimeMs();
-      this.scoreboard = new ServerScoreboard(this);
-      this.bossBarManager = new BossBarManager();
-      this.metricsData = new MetricsData();
-      this.combinedDynamicRegistries = saveLoader.combinedDynamicRegistries();
-      this.saveProperties = saveLoader.saveProperties();
-      if (!this.combinedDynamicRegistries.getCombinedRegistryManager().get(RegistryKeys.DIMENSION).contains(DimensionOptions.OVERWORLD)) {
+      this.registries = p_236726_.registries();
+      this.worldData = p_236726_.worldData();
+      if (!this.registries.compositeAccess().registryOrThrow(Registries.LEVEL_STEM).containsKey(LevelStem.OVERWORLD)) {
          throw new IllegalStateException("Missing Overworld dimension data");
       } else {
-         this.proxy = proxy;
-         this.dataPackManager = dataPackManager;
-         this.resourceManagerHolder = new ResourceManagerHolder(saveLoader.resourceManager(), saveLoader.dataPackContents());
-         this.apiServices = apiServices;
-         if (apiServices.userCache() != null) {
-            apiServices.userCache().setExecutor(this);
+         this.proxy = p_236727_;
+         this.packRepository = p_236725_;
+         this.resources = new MinecraftServer.ReloadableResources(p_236726_.resourceManager(), p_236726_.dataPackResources());
+         this.services = p_236729_;
+         if (p_236729_.profileCache() != null) {
+            p_236729_.profileCache().setExecutor(this);
          }
 
-         this.networkIo = new ServerNetworkIo(this);
-         this.worldGenerationProgressListenerFactory = worldGenerationProgressListenerFactory;
-         this.session = session;
-         this.saveHandler = session.createSaveHandler();
-         this.dataFixer = dataFixer;
-         this.commandFunctionManager = new CommandFunctionManager(this, this.resourceManagerHolder.dataPackContents.getFunctionLoader());
-         RegistryEntryLookup lv = this.combinedDynamicRegistries.getCombinedRegistryManager().get(RegistryKeys.BLOCK).getReadOnlyWrapper().withFeatureFilter(this.saveProperties.getEnabledFeatures());
-         this.structureTemplateManager = new StructureTemplateManager(saveLoader.resourceManager(), session, dataFixer, lv);
-         this.serverThread = serverThread;
-         this.workerExecutor = Util.getMainWorkerExecutor();
+         this.connection = new ServerConnectionListener(this);
+         this.progressListenerFactory = p_236730_;
+         this.storageSource = p_236724_;
+         this.playerDataStorage = p_236724_.createPlayerStorage();
+         this.fixerUpper = p_236728_;
+         this.functionManager = new ServerFunctionManager(this, this.resources.managers.getFunctionLibrary());
+         HolderGetter<Block> holdergetter = this.registries.compositeAccess().registryOrThrow(Registries.BLOCK).asLookup().filterFeatures(this.worldData.enabledFeatures());
+         this.structureTemplateManager = new StructureTemplateManager(p_236726_.resourceManager(), p_236724_, p_236728_, holdergetter);
+         this.serverThread = p_236723_;
+         this.executor = Util.backgroundExecutor();
       }
    }
 
-   private void initScoreboard(PersistentStateManager persistentStateManager) {
-      ServerScoreboard var10001 = this.getScoreboard();
-      Objects.requireNonNull(var10001);
-      Function var2 = var10001::stateFromNbt;
-      ServerScoreboard var10002 = this.getScoreboard();
-      Objects.requireNonNull(var10002);
-      persistentStateManager.getOrCreate(var2, var10002::createState, "scoreboard");
+   private void readScoreboard(DimensionDataStorage p_129842_) {
+      p_129842_.computeIfAbsent(this.getScoreboard().dataFactory(), "scoreboard");
    }
 
-   protected abstract boolean setupServer() throws IOException;
+   protected abstract boolean initServer() throws IOException;
 
-   protected void loadWorld() {
-      if (!FlightProfiler.INSTANCE.isProfiling()) {
+   protected void loadLevel() {
+      if (!JvmProfiler.INSTANCE.isRunning()) {
       }
 
-      boolean bl = false;
-      Finishable lv = FlightProfiler.INSTANCE.startWorldLoadProfiling();
-      this.saveProperties.addServerBrand(this.getServerModName(), this.getModStatus().isModded());
-      WorldGenerationProgressListener lv2 = this.worldGenerationProgressListenerFactory.create(11);
-      this.createWorlds(lv2);
-      this.updateDifficulty();
-      this.prepareStartRegion(lv2);
-      if (lv != null) {
-         lv.finish();
+      boolean flag = false;
+      ProfiledDuration profiledduration = JvmProfiler.INSTANCE.onWorldLoadedStarted();
+      this.worldData.setModdedInfo(this.getServerModName(), this.getModdedStatus().shouldReportAsModified());
+      ChunkProgressListener chunkprogresslistener = this.progressListenerFactory.create(11);
+      this.createLevels(chunkprogresslistener);
+      this.forceDifficulty();
+      this.prepareLevels(chunkprogresslistener);
+      if (profiledduration != null) {
+         profiledduration.finish();
       }
 
-      if (bl) {
+      if (flag) {
          try {
-            FlightProfiler.INSTANCE.stop();
-         } catch (Throwable var5) {
-            LOGGER.warn("Failed to stop JFR profiling", var5);
+            JvmProfiler.INSTANCE.stop();
+         } catch (Throwable throwable) {
+            LOGGER.warn("Failed to stop JFR profiling", throwable);
          }
       }
 
    }
 
-   protected void updateDifficulty() {
+   protected void forceDifficulty() {
    }
 
-   protected void createWorlds(WorldGenerationProgressListener worldGenerationProgressListener) {
-      ServerWorldProperties lv = this.saveProperties.getMainWorldProperties();
-      boolean bl = this.saveProperties.isDebugWorld();
-      Registry lv2 = this.combinedDynamicRegistries.getCombinedRegistryManager().get(RegistryKeys.DIMENSION);
-      GeneratorOptions lv3 = this.saveProperties.getGeneratorOptions();
-      long l = lv3.getSeed();
-      long m = BiomeAccess.hashSeed(l);
-      List list = ImmutableList.of(new PhantomSpawner(), new PatrolSpawner(), new CatSpawner(), new ZombieSiegeManager(), new WanderingTraderManager(lv));
-      DimensionOptions lv4 = (DimensionOptions)lv2.get(DimensionOptions.OVERWORLD);
-      ServerWorld lv5 = new ServerWorld(this, this.workerExecutor, this.session, lv, World.OVERWORLD, lv4, worldGenerationProgressListener, bl, m, list, true);
-      this.worlds.put(World.OVERWORLD, lv5);
-      PersistentStateManager lv6 = lv5.getPersistentStateManager();
-      this.initScoreboard(lv6);
-      this.dataCommandStorage = new DataCommandStorage(lv6);
-      WorldBorder lv7 = lv5.getWorldBorder();
-      if (!lv.isInitialized()) {
+   protected void createLevels(ChunkProgressListener p_129816_) {
+      ServerLevelData serverleveldata = this.worldData.overworldData();
+      boolean flag = this.worldData.isDebugWorld();
+      Registry<LevelStem> registry = this.registries.compositeAccess().registryOrThrow(Registries.LEVEL_STEM);
+      WorldOptions worldoptions = this.worldData.worldGenOptions();
+      long i = worldoptions.seed();
+      long j = BiomeManager.obfuscateSeed(i);
+      List<CustomSpawner> list = ImmutableList.of(new PhantomSpawner(), new PatrolSpawner(), new CatSpawner(), new VillageSiege(), new WanderingTraderSpawner(serverleveldata));
+      LevelStem levelstem = registry.get(LevelStem.OVERWORLD);
+      ServerLevel serverlevel = new ServerLevel(this, this.executor, this.storageSource, serverleveldata, Level.OVERWORLD, levelstem, p_129816_, flag, j, list, true, (RandomSequences)null);
+      this.levels.put(Level.OVERWORLD, serverlevel);
+      DimensionDataStorage dimensiondatastorage = serverlevel.getDataStorage();
+      this.readScoreboard(dimensiondatastorage);
+      this.commandStorage = new CommandStorage(dimensiondatastorage);
+      WorldBorder worldborder = serverlevel.getWorldBorder();
+      if (!serverleveldata.isInitialized()) {
          try {
-            setupSpawn(lv5, lv, lv3.hasBonusChest(), bl);
-            lv.setInitialized(true);
-            if (bl) {
-               this.setToDebugWorldProperties(this.saveProperties);
+            setInitialSpawn(serverlevel, serverleveldata, worldoptions.generateBonusChest(), flag);
+            serverleveldata.setInitialized(true);
+            if (flag) {
+               this.setupDebugLevel(this.worldData);
             }
-         } catch (Throwable var22) {
-            CrashReport lv8 = CrashReport.create(var22, "Exception initializing level");
+         } catch (Throwable throwable1) {
+            CrashReport crashreport = CrashReport.forThrowable(throwable1, "Exception initializing level");
 
             try {
-               lv5.addDetailsToCrashReport(lv8);
-            } catch (Throwable var21) {
+               serverlevel.fillReportDetails(crashreport);
+            } catch (Throwable throwable) {
             }
 
-            throw new CrashException(lv8);
+            throw new ReportedException(crashreport);
          }
 
-         lv.setInitialized(true);
+         serverleveldata.setInitialized(true);
       }
 
-      this.getPlayerManager().setMainWorld(lv5);
-      if (this.saveProperties.getCustomBossEvents() != null) {
-         this.getBossBarManager().readNbt(this.saveProperties.getCustomBossEvents());
+      this.getPlayerList().addWorldborderListener(serverlevel);
+      if (this.worldData.getCustomBossEvents() != null) {
+         this.getCustomBossEvents().load(this.worldData.getCustomBossEvents());
       }
 
-      Iterator var15 = lv2.getEntrySet().iterator();
+      RandomSequences randomsequences = serverlevel.getRandomSequences();
 
-      while(var15.hasNext()) {
-         Map.Entry entry = (Map.Entry)var15.next();
-         RegistryKey lv9 = (RegistryKey)entry.getKey();
-         if (lv9 != DimensionOptions.OVERWORLD) {
-            RegistryKey lv10 = RegistryKey.of(RegistryKeys.WORLD, lv9.getValue());
-            UnmodifiableLevelProperties lv11 = new UnmodifiableLevelProperties(this.saveProperties, lv);
-            ServerWorld lv12 = new ServerWorld(this, this.workerExecutor, this.session, lv11, lv10, (DimensionOptions)entry.getValue(), worldGenerationProgressListener, bl, m, ImmutableList.of(), false);
-            lv7.addListener(new WorldBorderListener.WorldBorderSyncer(lv12.getWorldBorder()));
-            this.worlds.put(lv10, lv12);
+      for(Map.Entry<ResourceKey<LevelStem>, LevelStem> entry : registry.entrySet()) {
+         ResourceKey<LevelStem> resourcekey = entry.getKey();
+         if (resourcekey != LevelStem.OVERWORLD) {
+            ResourceKey<Level> resourcekey1 = ResourceKey.create(Registries.DIMENSION, resourcekey.location());
+            DerivedLevelData derivedleveldata = new DerivedLevelData(this.worldData, serverleveldata);
+            ServerLevel serverlevel1 = new ServerLevel(this, this.executor, this.storageSource, derivedleveldata, resourcekey1, entry.getValue(), p_129816_, flag, j, ImmutableList.of(), false, randomsequences);
+            worldborder.addListener(new BorderChangeListener.DelegateBorderChangeListener(serverlevel1.getWorldBorder()));
+            this.levels.put(resourcekey1, serverlevel1);
          }
       }
 
-      lv7.load(lv.getWorldBorder());
+      worldborder.applySettings(serverleveldata.getWorldBorder());
    }
 
-   private static void setupSpawn(ServerWorld world, ServerWorldProperties worldProperties, boolean bonusChest, boolean debugWorld) {
-      if (debugWorld) {
-         worldProperties.setSpawnPos(BlockPos.ORIGIN.up(80), 0.0F);
+   private static void setInitialSpawn(ServerLevel p_177897_, ServerLevelData p_177898_, boolean p_177899_, boolean p_177900_) {
+      if (p_177900_) {
+         p_177898_.setSpawn(BlockPos.ZERO.above(80), 0.0F);
       } else {
-         ServerChunkManager lv = world.getChunkManager();
-         ChunkPos lv2 = new ChunkPos(lv.getNoiseConfig().getMultiNoiseSampler().findBestSpawnPosition());
-         int i = lv.getChunkGenerator().getSpawnHeight(world);
-         if (i < world.getBottomY()) {
-            BlockPos lv3 = lv2.getStartPos();
-            i = world.getTopY(Heightmap.Type.WORLD_SURFACE, lv3.getX() + 8, lv3.getZ() + 8);
+         ServerChunkCache serverchunkcache = p_177897_.getChunkSource();
+         ChunkPos chunkpos = new ChunkPos(serverchunkcache.randomState().sampler().findSpawnPosition());
+         int i = serverchunkcache.getGenerator().getSpawnHeight(p_177897_);
+         if (i < p_177897_.getMinBuildHeight()) {
+            BlockPos blockpos = chunkpos.getWorldPosition();
+            i = p_177897_.getHeight(Heightmap.Types.WORLD_SURFACE, blockpos.getX() + 8, blockpos.getZ() + 8);
          }
 
-         worldProperties.setSpawnPos(lv2.getStartPos().add(8, i, 8), 0.0F);
+         p_177898_.setSpawn(chunkpos.getWorldPosition().offset(8, i, 8), 0.0F);
+         int k1 = 0;
          int j = 0;
          int k = 0;
-         int l = 0;
-         int m = -1;
-         int n = true;
+         int l = -1;
+         int i1 = 5;
 
-         for(int o = 0; o < MathHelper.square(11); ++o) {
-            if (j >= -5 && j <= 5 && k >= -5 && k <= 5) {
-               BlockPos lv4 = SpawnLocating.findServerSpawnPoint(world, new ChunkPos(lv2.x + j, lv2.z + k));
-               if (lv4 != null) {
-                  worldProperties.setSpawnPos(lv4, 0.0F);
+         for(int j1 = 0; j1 < Mth.square(11); ++j1) {
+            if (k1 >= -5 && k1 <= 5 && j >= -5 && j <= 5) {
+               BlockPos blockpos1 = PlayerRespawnLogic.getSpawnPosInChunk(p_177897_, new ChunkPos(chunkpos.x + k1, chunkpos.z + j));
+               if (blockpos1 != null) {
+                  p_177898_.setSpawn(blockpos1, 0.0F);
                   break;
                }
             }
 
-            if (j == k || j < 0 && j == -k || j > 0 && j == 1 - k) {
-               int p = l;
-               l = -m;
-               m = p;
+            if (k1 == j || k1 < 0 && k1 == -j || k1 > 0 && k1 == 1 - j) {
+               int l1 = k;
+               k = -l;
+               l = l1;
             }
 
+            k1 += k;
             j += l;
-            k += m;
          }
 
-         if (bonusChest) {
-            world.getRegistryManager().getOptional(RegistryKeys.CONFIGURED_FEATURE).flatMap((featureRegistry) -> {
-               return featureRegistry.getEntry(MiscConfiguredFeatures.BONUS_CHEST);
-            }).ifPresent((feature) -> {
-               ((ConfiguredFeature)feature.value()).generate(world, lv.getChunkGenerator(), world.random, new BlockPos(worldProperties.getSpawnX(), worldProperties.getSpawnY(), worldProperties.getSpawnZ()));
+         if (p_177899_) {
+            p_177897_.registryAccess().registry(Registries.CONFIGURED_FEATURE).flatMap((p_258226_) -> {
+               return p_258226_.getHolder(MiscOverworldFeatures.BONUS_CHEST);
+            }).ifPresent((p_264729_) -> {
+               p_264729_.value().place(p_177897_, serverchunkcache.getGenerator(), p_177897_.random, new BlockPos(p_177898_.getXSpawn(), p_177898_.getYSpawn(), p_177898_.getZSpawn()));
             });
          }
 
       }
    }
 
-   private void setToDebugWorldProperties(SaveProperties properties) {
-      properties.setDifficulty(Difficulty.PEACEFUL);
-      properties.setDifficultyLocked(true);
-      ServerWorldProperties lv = properties.getMainWorldProperties();
-      lv.setRaining(false);
-      lv.setThundering(false);
-      lv.setClearWeatherTime(1000000000);
-      lv.setTimeOfDay(6000L);
-      lv.setGameMode(GameMode.SPECTATOR);
+   private void setupDebugLevel(WorldData p_129848_) {
+      p_129848_.setDifficulty(Difficulty.PEACEFUL);
+      p_129848_.setDifficultyLocked(true);
+      ServerLevelData serverleveldata = p_129848_.overworldData();
+      serverleveldata.setRaining(false);
+      serverleveldata.setThundering(false);
+      serverleveldata.setClearWeatherTime(1000000000);
+      serverleveldata.setDayTime(6000L);
+      serverleveldata.setGameType(GameType.SPECTATOR);
    }
 
-   private void prepareStartRegion(WorldGenerationProgressListener worldGenerationProgressListener) {
-      ServerWorld lv = this.getOverworld();
-      LOGGER.info("Preparing start region for dimension {}", lv.getRegistryKey().getValue());
-      BlockPos lv2 = lv.getSpawnPos();
-      worldGenerationProgressListener.start(new ChunkPos(lv2));
-      ServerChunkManager lv3 = lv.getChunkManager();
-      lv3.getLightingProvider().setTaskBatchSize(500);
-      this.timeReference = Util.getMeasuringTimeMs();
-      lv3.addTicket(ChunkTicketType.START, new ChunkPos(lv2), 11, Unit.INSTANCE);
+   private void prepareLevels(ChunkProgressListener p_129941_) {
+      ServerLevel serverlevel = this.overworld();
+      LOGGER.info("Preparing start region for dimension {}", (Object)serverlevel.dimension().location());
+      BlockPos blockpos = serverlevel.getSharedSpawnPos();
+      p_129941_.updateSpawnPos(new ChunkPos(blockpos));
+      ServerChunkCache serverchunkcache = serverlevel.getChunkSource();
+      this.nextTickTime = Util.getMillis();
+      serverchunkcache.addRegionTicket(TicketType.START, new ChunkPos(blockpos), 11, Unit.INSTANCE);
 
-      while(lv3.getTotalChunksLoadedCount() != 441) {
-         this.timeReference = Util.getMeasuringTimeMs() + 10L;
-         this.runTasksTillTickEnd();
+      while(serverchunkcache.getTickingGenerated() != 441) {
+         this.nextTickTime = Util.getMillis() + 10L;
+         this.waitUntilNextTick();
       }
 
-      this.timeReference = Util.getMeasuringTimeMs() + 10L;
-      this.runTasksTillTickEnd();
-      Iterator var5 = this.worlds.values().iterator();
+      this.nextTickTime = Util.getMillis() + 10L;
+      this.waitUntilNextTick();
 
-      while(true) {
-         ServerWorld lv4;
-         ForcedChunkState lv5;
-         do {
-            if (!var5.hasNext()) {
-               this.timeReference = Util.getMeasuringTimeMs() + 10L;
-               this.runTasksTillTickEnd();
-               worldGenerationProgressListener.stop();
-               lv3.getLightingProvider().setTaskBatchSize(5);
-               this.updateMobSpawnOptions();
-               return;
+      for(ServerLevel serverlevel1 : this.levels.values()) {
+         ForcedChunksSavedData forcedchunkssaveddata = serverlevel1.getDataStorage().get(ForcedChunksSavedData.factory(), "chunks");
+         if (forcedchunkssaveddata != null) {
+            LongIterator longiterator = forcedchunkssaveddata.getChunks().iterator();
+
+            while(longiterator.hasNext()) {
+               long i = longiterator.nextLong();
+               ChunkPos chunkpos = new ChunkPos(i);
+               serverlevel1.getChunkSource().updateChunkForced(chunkpos, true);
             }
-
-            lv4 = (ServerWorld)var5.next();
-            lv5 = (ForcedChunkState)lv4.getPersistentStateManager().get(ForcedChunkState::fromNbt, "chunks");
-         } while(lv5 == null);
-
-         LongIterator longIterator = lv5.getChunks().iterator();
-
-         while(longIterator.hasNext()) {
-            long l = longIterator.nextLong();
-            ChunkPos lv6 = new ChunkPos(l);
-            lv4.getChunkManager().setChunkForced(lv6, true);
          }
       }
+
+      this.nextTickTime = Util.getMillis() + 10L;
+      this.waitUntilNextTick();
+      p_129941_.stop();
+      this.updateMobSpawningFlags();
    }
 
-   public GameMode getDefaultGameMode() {
-      return this.saveProperties.getGameMode();
+   public GameType getDefaultGameType() {
+      return this.worldData.getGameType();
    }
 
    public boolean isHardcore() {
-      return this.saveProperties.isHardcore();
+      return this.worldData.isHardcore();
    }
 
-   public abstract int getOpPermissionLevel();
+   public abstract int getOperatorUserPermissionLevel();
 
-   public abstract int getFunctionPermissionLevel();
+   public abstract int getFunctionCompilationLevel();
 
-   public abstract boolean shouldBroadcastRconToOps();
+   public abstract boolean shouldRconBroadcast();
 
-   public boolean save(boolean suppressLogs, boolean flush, boolean force) {
-      boolean bl4 = false;
+   public boolean saveAllChunks(boolean p_129886_, boolean p_129887_, boolean p_129888_) {
+      boolean flag = false;
 
-      for(Iterator var5 = this.getWorlds().iterator(); var5.hasNext(); bl4 = true) {
-         ServerWorld lv = (ServerWorld)var5.next();
-         if (!suppressLogs) {
-            LOGGER.info("Saving chunks for level '{}'/{}", lv, lv.getRegistryKey().getValue());
+      for(ServerLevel serverlevel : this.getAllLevels()) {
+         if (!p_129886_) {
+            LOGGER.info("Saving chunks for level '{}'/{}", serverlevel, serverlevel.dimension().location());
          }
 
-         lv.save((ProgressListener)null, flush, lv.savingDisabled && !force);
+         serverlevel.save((ProgressListener)null, p_129887_, serverlevel.noSave && !p_129888_);
+         flag = true;
       }
 
-      ServerWorld lv2 = this.getOverworld();
-      ServerWorldProperties lv3 = this.saveProperties.getMainWorldProperties();
-      lv3.setWorldBorder(lv2.getWorldBorder().write());
-      this.saveProperties.setCustomBossEvents(this.getBossBarManager().toNbt());
-      this.session.backupLevelDataFile(this.getRegistryManager(), this.saveProperties, this.getPlayerManager().getUserData());
-      if (flush) {
-         Iterator var7 = this.getWorlds().iterator();
-
-         while(var7.hasNext()) {
-            ServerWorld lv4 = (ServerWorld)var7.next();
-            LOGGER.info("ThreadedAnvilChunkStorage ({}): All chunks are saved", lv4.getChunkManager().threadedAnvilChunkStorage.getSaveDir());
+      ServerLevel serverlevel2 = this.overworld();
+      ServerLevelData serverleveldata = this.worldData.overworldData();
+      serverleveldata.setWorldBorder(serverlevel2.getWorldBorder().createSettings());
+      this.worldData.setCustomBossEvents(this.getCustomBossEvents().save());
+      this.storageSource.saveDataTag(this.registryAccess(), this.worldData, this.getPlayerList().getSingleplayerData());
+      if (p_129887_) {
+         for(ServerLevel serverlevel1 : this.getAllLevels()) {
+            LOGGER.info("ThreadedAnvilChunkStorage ({}): All chunks are saved", (Object)serverlevel1.getChunkSource().chunkMap.getStorageName());
          }
 
          LOGGER.info("ThreadedAnvilChunkStorage: All dimensions are saved");
       }
 
-      return bl4;
+      return flag;
    }
 
-   public boolean saveAll(boolean suppressLogs, boolean flush, boolean force) {
-      boolean var4;
+   public boolean saveEverything(boolean p_195515_, boolean p_195516_, boolean p_195517_) {
+      boolean flag;
       try {
-         this.saving = true;
-         this.getPlayerManager().saveAllPlayerData();
-         var4 = this.save(suppressLogs, flush, force);
+         this.isSaving = true;
+         this.getPlayerList().saveAll();
+         flag = this.saveAllChunks(p_195515_, p_195516_, p_195517_);
       } finally {
-         this.saving = false;
+         this.isSaving = false;
       }
 
-      return var4;
+      return flag;
    }
 
    public void close() {
-      this.shutdown();
+      this.stopServer();
    }
 
-   public void shutdown() {
-      if (this.recorder.isActive()) {
-         this.forceStopRecorder();
+   public void stopServer() {
+      if (this.metricsRecorder.isRecording()) {
+         this.cancelRecordingMetrics();
       }
 
       LOGGER.info("Stopping server");
-      if (this.getNetworkIo() != null) {
-         this.getNetworkIo().stop();
-      }
-
-      this.saving = true;
-      if (this.playerManager != null) {
+      this.getConnection().stop();
+      this.isSaving = true;
+      if (this.playerList != null) {
          LOGGER.info("Saving players");
-         this.playerManager.saveAllPlayerData();
-         this.playerManager.disconnectAllPlayers();
+         this.playerList.saveAll();
+         this.playerList.removeAll();
       }
 
       LOGGER.info("Saving worlds");
-      Iterator var1 = this.getWorlds().iterator();
 
-      ServerWorld lv;
-      while(var1.hasNext()) {
-         lv = (ServerWorld)var1.next();
-         if (lv != null) {
-            lv.savingDisabled = false;
+      for(ServerLevel serverlevel : this.getAllLevels()) {
+         if (serverlevel != null) {
+            serverlevel.noSave = false;
          }
       }
 
-      while(this.worlds.values().stream().anyMatch((world) -> {
-         return world.getChunkManager().threadedAnvilChunkStorage.shouldDelayShutdown();
+      while(this.levels.values().stream().anyMatch((p_202480_) -> {
+         return p_202480_.getChunkSource().chunkMap.hasWork();
       })) {
-         this.timeReference = Util.getMeasuringTimeMs() + 1L;
-         var1 = this.getWorlds().iterator();
+         this.nextTickTime = Util.getMillis() + 1L;
 
-         while(var1.hasNext()) {
-            lv = (ServerWorld)var1.next();
-            lv.getChunkManager().removePersistentTickets();
-            lv.getChunkManager().tick(() -> {
+         for(ServerLevel serverlevel1 : this.getAllLevels()) {
+            serverlevel1.getChunkSource().removeTicketsOnClosing();
+            serverlevel1.getChunkSource().tick(() -> {
                return true;
             }, false);
          }
 
-         this.runTasksTillTickEnd();
+         this.waitUntilNextTick();
       }
 
-      this.save(false, true, false);
-      var1 = this.getWorlds().iterator();
+      this.saveAllChunks(false, true, false);
 
-      while(var1.hasNext()) {
-         lv = (ServerWorld)var1.next();
-         if (lv != null) {
+      for(ServerLevel serverlevel2 : this.getAllLevels()) {
+         if (serverlevel2 != null) {
             try {
-               lv.close();
-            } catch (IOException var5) {
-               LOGGER.error("Exception closing the level", var5);
+               serverlevel2.close();
+            } catch (IOException ioexception1) {
+               LOGGER.error("Exception closing the level", (Throwable)ioexception1);
             }
          }
       }
 
-      this.saving = false;
-      this.resourceManagerHolder.close();
+      this.isSaving = false;
+      this.resources.close();
 
       try {
-         this.session.close();
-      } catch (IOException var4) {
-         LOGGER.error("Failed to unlock level {}", this.session.getDirectoryName(), var4);
+         this.storageSource.close();
+      } catch (IOException ioexception) {
+         LOGGER.error("Failed to unlock level {}", this.storageSource.getLevelId(), ioexception);
       }
 
    }
 
-   public String getServerIp() {
-      return this.serverIp;
+   public String getLocalIp() {
+      return this.localIp;
    }
 
-   public void setServerIp(String serverIp) {
-      this.serverIp = serverIp;
+   public void setLocalIp(String p_129914_) {
+      this.localIp = p_129914_;
    }
 
    public boolean isRunning() {
       return this.running;
    }
 
-   public void stop(boolean waitForShutdown) {
+   public void halt(boolean p_129884_) {
       this.running = false;
-      if (waitForShutdown) {
+      if (p_129884_) {
          try {
             this.serverThread.join();
-         } catch (InterruptedException var3) {
-            LOGGER.error("Error while shutting down", var3);
+         } catch (InterruptedException interruptedexception) {
+            LOGGER.error("Error while shutting down", (Throwable)interruptedexception);
          }
       }
 
@@ -663,128 +621,125 @@ public abstract class MinecraftServer extends ReentrantThreadExecutor implements
 
    protected void runServer() {
       try {
-         if (!this.setupServer()) {
+         if (!this.initServer()) {
             throw new IllegalStateException("Failed to initialize server");
          }
 
-         this.timeReference = Util.getMeasuringTimeMs();
-         this.favicon = (ServerMetadata.Favicon)this.loadFavicon().orElse((Object)null);
-         this.metadata = this.createMetadata();
+         this.nextTickTime = Util.getMillis();
+         this.statusIcon = this.loadStatusIcon().orElse((ServerStatus.Favicon)null);
+         this.status = this.buildServerStatus();
 
          while(this.running) {
-            long l = Util.getMeasuringTimeMs() - this.timeReference;
-            if (l > 2000L && this.timeReference - this.lastTimeReference >= 15000L) {
-               long m = l / 50L;
-               LOGGER.warn("Can't keep up! Is the server overloaded? Running {}ms or {} ticks behind", l, m);
-               this.timeReference += m * 50L;
-               this.lastTimeReference = this.timeReference;
+            long i = Util.getMillis() - this.nextTickTime;
+            if (i > 2000L && this.nextTickTime - this.lastOverloadWarning >= 15000L) {
+               long j = i / 50L;
+               LOGGER.warn("Can't keep up! Is the server overloaded? Running {}ms or {} ticks behind", i, j);
+               this.nextTickTime += j * 50L;
+               this.lastOverloadWarning = this.nextTickTime;
             }
 
-            if (this.needsDebugSetup) {
-               this.needsDebugSetup = false;
-               this.debugStart = new DebugStart(Util.getMeasuringTimeNano(), this.ticks);
+            if (this.debugCommandProfilerDelayStart) {
+               this.debugCommandProfilerDelayStart = false;
+               this.debugCommandProfiler = new MinecraftServer.TimeProfiler(Util.getNanos(), this.tickCount);
             }
 
-            this.timeReference += 50L;
-            this.startTickMetrics();
+            this.nextTickTime += 50L;
+            this.startMetricsRecordingTick();
             this.profiler.push("tick");
-            this.tick(this::shouldKeepTicking);
-            this.profiler.swap("nextTickWait");
-            this.waitingForNextTick = true;
-            this.nextTickTimestamp = Math.max(Util.getMeasuringTimeMs() + 50L, this.timeReference);
-            this.runTasksTillTickEnd();
+            this.tickServer(this::haveTime);
+            this.profiler.popPush("nextTickWait");
+            this.mayHaveDelayedTasks = true;
+            this.delayedTasksMaxNextTickTime = Math.max(Util.getMillis() + 50L, this.nextTickTime);
+            this.waitUntilNextTick();
             this.profiler.pop();
-            this.endTickMetrics();
-            this.loading = true;
-            FlightProfiler.INSTANCE.onTick(this.tickTime);
+            this.endMetricsRecordingTick();
+            this.isReady = true;
+            JvmProfiler.INSTANCE.onServerTick(this.averageTickTime);
          }
-      } catch (Throwable var44) {
-         LOGGER.error("Encountered an unexpected exception", var44);
-         CrashReport lv = createCrashReport(var44);
-         this.addSystemDetails(lv.getSystemDetailsSection());
-         File file = new File(new File(this.getRunDirectory(), "crash-reports"), "crash-" + Util.getFormattedCurrentTime() + "-server.txt");
-         if (lv.writeToFile(file)) {
-            LOGGER.error("This crash report has been saved to: {}", file.getAbsolutePath());
+      } catch (Throwable throwable1) {
+         LOGGER.error("Encountered an unexpected exception", throwable1);
+         CrashReport crashreport = constructOrExtractCrashReport(throwable1);
+         this.fillSystemReport(crashreport.getSystemReport());
+         File file1 = new File(new File(this.getServerDirectory(), "crash-reports"), "crash-" + Util.getFilenameFormattedDateTime() + "-server.txt");
+         if (crashreport.saveToFile(file1)) {
+            LOGGER.error("This crash report has been saved to: {}", (Object)file1.getAbsolutePath());
          } else {
             LOGGER.error("We were unable to save this crash report to disk.");
          }
 
-         this.setCrashReport(lv);
+         this.onServerCrash(crashreport);
       } finally {
          try {
             this.stopped = true;
-            this.shutdown();
-         } catch (Throwable var42) {
-            LOGGER.error("Exception stopping the server", var42);
+            this.stopServer();
+         } catch (Throwable throwable) {
+            LOGGER.error("Exception stopping the server", throwable);
          } finally {
-            if (this.apiServices.userCache() != null) {
-               this.apiServices.userCache().clearExecutor();
+            if (this.services.profileCache() != null) {
+               this.services.profileCache().clearExecutor();
             }
 
-            this.exit();
+            this.onServerExit();
          }
 
       }
 
    }
 
-   private static CrashReport createCrashReport(Throwable throwable) {
-      CrashException lv = null;
+   private static CrashReport constructOrExtractCrashReport(Throwable p_206569_) {
+      ReportedException reportedexception = null;
 
-      for(Throwable throwable2 = throwable; throwable2 != null; throwable2 = throwable2.getCause()) {
-         if (throwable2 instanceof CrashException lv2) {
-            lv = lv2;
+      for(Throwable throwable = p_206569_; throwable != null; throwable = throwable.getCause()) {
+         if (throwable instanceof ReportedException reportedexception1) {
+            reportedexception = reportedexception1;
          }
       }
 
-      CrashReport lv3;
-      if (lv != null) {
-         lv3 = lv.getReport();
-         if (lv != throwable) {
-            lv3.addElement("Wrapped in").add("Wrapping exception", throwable);
+      CrashReport crashreport;
+      if (reportedexception != null) {
+         crashreport = reportedexception.getReport();
+         if (reportedexception != p_206569_) {
+            crashreport.addCategory("Wrapped in").setDetailError("Wrapping exception", p_206569_);
          }
       } else {
-         lv3 = new CrashReport("Exception in server tick loop", throwable);
+         crashreport = new CrashReport("Exception in server tick loop", p_206569_);
       }
 
-      return lv3;
+      return crashreport;
    }
 
-   private boolean shouldKeepTicking() {
-      return this.hasRunningTasks() || Util.getMeasuringTimeMs() < (this.waitingForNextTick ? this.nextTickTimestamp : this.timeReference);
+   private boolean haveTime() {
+      return this.runningTask() || Util.getMillis() < (this.mayHaveDelayedTasks ? this.delayedTasksMaxNextTickTime : this.nextTickTime);
    }
 
-   protected void runTasksTillTickEnd() {
-      this.runTasks();
-      this.runTasks(() -> {
-         return !this.shouldKeepTicking();
+   protected void waitUntilNextTick() {
+      this.runAllTasks();
+      this.managedBlock(() -> {
+         return !this.haveTime();
       });
    }
 
-   protected ServerTask createTask(Runnable runnable) {
-      return new ServerTask(this.ticks, runnable);
+   protected TickTask wrapRunnable(Runnable p_129852_) {
+      return new TickTask(this.tickCount, p_129852_);
    }
 
-   protected boolean canExecute(ServerTask arg) {
-      return arg.getCreationTicks() + 3 < this.ticks || this.shouldKeepTicking();
+   protected boolean shouldRun(TickTask p_129883_) {
+      return p_129883_.getTick() + 3 < this.tickCount || this.haveTime();
    }
 
-   public boolean runTask() {
-      boolean bl = this.runOneTask();
-      this.waitingForNextTick = bl;
-      return bl;
+   public boolean pollTask() {
+      boolean flag = this.pollTaskInternal();
+      this.mayHaveDelayedTasks = flag;
+      return flag;
    }
 
-   private boolean runOneTask() {
-      if (super.runTask()) {
+   private boolean pollTaskInternal() {
+      if (super.pollTask()) {
          return true;
       } else {
-         if (this.shouldKeepTicking()) {
-            Iterator var1 = this.getWorlds().iterator();
-
-            while(var1.hasNext()) {
-               ServerWorld lv = (ServerWorld)var1.next();
-               if (lv.getChunkManager().executeQueuedTasks()) {
+         if (this.haveTime()) {
+            for(ServerLevel serverlevel : this.getAllLevels()) {
+               if (serverlevel.getChunkSource().pollTask()) {
                   return true;
                }
             }
@@ -794,213 +749,222 @@ public abstract class MinecraftServer extends ReentrantThreadExecutor implements
       }
    }
 
-   protected void executeTask(ServerTask arg) {
-      this.getProfiler().visit("runTask");
-      super.executeTask(arg);
+   public void doRunTask(TickTask p_129957_) {
+      this.getProfiler().incrementCounter("runTask");
+      super.doRunTask(p_129957_);
    }
 
-   private Optional loadFavicon() {
-      Optional optional = Optional.of(this.getFile("server-icon.png").toPath()).filter((path) -> {
-         return Files.isRegularFile(path, new LinkOption[0]);
+   private Optional<ServerStatus.Favicon> loadStatusIcon() {
+      Optional<Path> optional = Optional.of(this.getFile("server-icon.png").toPath()).filter((p_272387_) -> {
+         return Files.isRegularFile(p_272387_);
       }).or(() -> {
-         return this.session.getIconFile().filter((path) -> {
-            return Files.isRegularFile(path, new LinkOption[0]);
+         return this.storageSource.getIconFile().filter((p_272385_) -> {
+            return Files.isRegularFile(p_272385_);
          });
       });
-      return optional.flatMap((path) -> {
+      return optional.flatMap((p_272386_) -> {
          try {
-            BufferedImage bufferedImage = ImageIO.read(path.toFile());
-            Preconditions.checkState(bufferedImage.getWidth() == 64, "Must be 64 pixels wide");
-            Preconditions.checkState(bufferedImage.getHeight() == 64, "Must be 64 pixels high");
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            ImageIO.write(bufferedImage, "PNG", byteArrayOutputStream);
-            return Optional.of(new ServerMetadata.Favicon(byteArrayOutputStream.toByteArray()));
-         } catch (Exception var3) {
-            LOGGER.error("Couldn't load server icon", var3);
+            BufferedImage bufferedimage = ImageIO.read(p_272386_.toFile());
+            Preconditions.checkState(bufferedimage.getWidth() == 64, "Must be 64 pixels wide");
+            Preconditions.checkState(bufferedimage.getHeight() == 64, "Must be 64 pixels high");
+            ByteArrayOutputStream bytearrayoutputstream = new ByteArrayOutputStream();
+            ImageIO.write(bufferedimage, "PNG", bytearrayoutputstream);
+            return Optional.of(new ServerStatus.Favicon(bytearrayoutputstream.toByteArray()));
+         } catch (Exception exception) {
+            LOGGER.error("Couldn't load server icon", (Throwable)exception);
             return Optional.empty();
          }
       });
    }
 
-   public Optional getIconFile() {
-      return this.session.getIconFile();
+   public Optional<Path> getWorldScreenshotFile() {
+      return this.storageSource.getIconFile();
    }
 
-   public File getRunDirectory() {
+   public File getServerDirectory() {
       return new File(".");
    }
 
-   public void setCrashReport(CrashReport report) {
+   public void onServerCrash(CrashReport p_129874_) {
    }
 
-   public void exit() {
+   public void onServerExit() {
    }
 
-   public void tick(BooleanSupplier shouldKeepTicking) {
-      long l = Util.getMeasuringTimeNano();
-      ++this.ticks;
-      this.tickWorlds(shouldKeepTicking);
-      if (l - this.lastPlayerSampleUpdate >= 5000000000L) {
-         this.lastPlayerSampleUpdate = l;
-         this.metadata = this.createMetadata();
+   public void tickServer(BooleanSupplier p_129871_) {
+      long i = Util.getNanos();
+      ++this.tickCount;
+      this.tickChildren(p_129871_);
+      if (i - this.lastServerStatus >= 5000000000L) {
+         this.lastServerStatus = i;
+         this.status = this.buildServerStatus();
       }
 
-      if (this.ticks % 6000 == 0) {
+      if (this.tickCount % 6000 == 0) {
          LOGGER.debug("Autosave started");
          this.profiler.push("save");
-         this.saveAll(true, false, false);
+         this.saveEverything(true, false, false);
          this.profiler.pop();
          LOGGER.debug("Autosave finished");
       }
 
       this.profiler.push("tallying");
-      long m = this.lastTickLengths[this.ticks % 100] = Util.getMeasuringTimeNano() - l;
-      this.tickTime = this.tickTime * 0.8F + (float)m / 1000000.0F * 0.19999999F;
-      long n = Util.getMeasuringTimeNano();
-      this.metricsData.pushSample(n - l);
+      long j = this.tickTimes[this.tickCount % 100] = Util.getNanos() - i;
+      this.averageTickTime = this.averageTickTime * 0.8F + (float)j / 1000000.0F * 0.19999999F;
+      long k = Util.getNanos();
+      this.logTickTime(k - i);
       this.profiler.pop();
    }
 
-   private ServerMetadata createMetadata() {
-      ServerMetadata.Players lv = this.createMetadataPlayers();
-      return new ServerMetadata(Text.of(this.motd), Optional.of(lv), Optional.of(ServerMetadata.Version.create()), Optional.ofNullable(this.favicon), this.shouldEnforceSecureProfile());
+   protected void logTickTime(long p_298126_) {
    }
 
-   private ServerMetadata.Players createMetadataPlayers() {
-      List list = this.playerManager.getPlayerList();
-      int i = this.getMaxPlayerCount();
-      if (this.hideOnlinePlayers()) {
-         return new ServerMetadata.Players(i, list.size(), List.of());
+   private ServerStatus buildServerStatus() {
+      ServerStatus.Players serverstatus$players = this.buildPlayerStatus();
+      return new ServerStatus(Component.nullToEmpty(this.motd), Optional.of(serverstatus$players), Optional.of(ServerStatus.Version.current()), Optional.ofNullable(this.statusIcon), this.enforceSecureProfile());
+   }
+
+   private ServerStatus.Players buildPlayerStatus() {
+      List<ServerPlayer> list = this.playerList.getPlayers();
+      int i = this.getMaxPlayers();
+      if (this.hidesOnlinePlayers()) {
+         return new ServerStatus.Players(i, list.size(), List.of());
       } else {
          int j = Math.min(list.size(), 12);
-         ObjectArrayList objectArrayList = new ObjectArrayList(j);
-         int k = MathHelper.nextInt(this.random, 0, list.size() - j);
+         ObjectArrayList<GameProfile> objectarraylist = new ObjectArrayList<>(j);
+         int k = Mth.nextInt(this.random, 0, list.size() - j);
 
          for(int l = 0; l < j; ++l) {
-            ServerPlayerEntity lv = (ServerPlayerEntity)list.get(k + l);
-            objectArrayList.add(lv.allowsServerListing() ? lv.getGameProfile() : ANONYMOUS_PLAYER_PROFILE);
+            ServerPlayer serverplayer = list.get(k + l);
+            objectarraylist.add(serverplayer.allowsListing() ? serverplayer.getGameProfile() : ANONYMOUS_PLAYER_PROFILE);
          }
 
-         Util.shuffle(objectArrayList, this.random);
-         return new ServerMetadata.Players(i, list.size(), objectArrayList);
+         Util.shuffle(objectarraylist, this.random);
+         return new ServerStatus.Players(i, list.size(), objectarraylist);
       }
    }
 
-   public void tickWorlds(BooleanSupplier shouldKeepTicking) {
+   public void tickChildren(BooleanSupplier p_129954_) {
+      this.getPlayerList().getPlayers().forEach((p_296434_) -> {
+         p_296434_.connection.suspendFlushing();
+      });
       this.profiler.push("commandFunctions");
-      this.getCommandFunctionManager().tick();
-      this.profiler.swap("levels");
-      Iterator var2 = this.getWorlds().iterator();
+      this.getFunctions().tick();
+      this.profiler.popPush("levels");
 
-      while(var2.hasNext()) {
-         ServerWorld lv = (ServerWorld)var2.next();
+      for(ServerLevel serverlevel : this.getAllLevels()) {
          this.profiler.push(() -> {
-            return "" + lv + " " + lv.getRegistryKey().getValue();
+            return serverlevel + " " + serverlevel.dimension().location();
          });
-         if (this.ticks % 20 == 0) {
+         if (this.tickCount % 20 == 0) {
             this.profiler.push("timeSync");
-            this.sendTimeUpdatePackets(lv);
+            this.synchronizeTime(serverlevel);
             this.profiler.pop();
          }
 
          this.profiler.push("tick");
 
          try {
-            lv.tick(shouldKeepTicking);
-         } catch (Throwable var6) {
-            CrashReport lv2 = CrashReport.create(var6, "Exception ticking world");
-            lv.addDetailsToCrashReport(lv2);
-            throw new CrashException(lv2);
+            serverlevel.tick(p_129954_);
+         } catch (Throwable throwable) {
+            CrashReport crashreport = CrashReport.forThrowable(throwable, "Exception ticking world");
+            serverlevel.fillReportDetails(crashreport);
+            throw new ReportedException(crashreport);
          }
 
          this.profiler.pop();
          this.profiler.pop();
       }
 
-      this.profiler.swap("connection");
-      this.getNetworkIo().tick();
-      this.profiler.swap("players");
-      this.playerManager.updatePlayerLatency();
-      if (SharedConstants.isDevelopment) {
-         TestManager.INSTANCE.tick();
+      this.profiler.popPush("connection");
+      this.getConnection().tick();
+      this.profiler.popPush("players");
+      this.playerList.tick();
+      if (SharedConstants.IS_RUNNING_IN_IDE) {
+         GameTestTicker.SINGLETON.tick();
       }
 
-      this.profiler.swap("server gui refresh");
+      this.profiler.popPush("server gui refresh");
 
-      for(int i = 0; i < this.serverGuiTickables.size(); ++i) {
-         ((Runnable)this.serverGuiTickables.get(i)).run();
+      for(int i = 0; i < this.tickables.size(); ++i) {
+         this.tickables.get(i).run();
+      }
+
+      this.profiler.popPush("send chunks");
+
+      for(ServerPlayer serverplayer : this.playerList.getPlayers()) {
+         serverplayer.connection.chunkSender.sendNextChunks(serverplayer);
+         serverplayer.connection.resumeFlushing();
       }
 
       this.profiler.pop();
    }
 
-   private void sendTimeUpdatePackets(ServerWorld world) {
-      this.playerManager.sendToDimension(new WorldTimeUpdateS2CPacket(world.getTime(), world.getTimeOfDay(), world.getGameRules().getBoolean(GameRules.DO_DAYLIGHT_CYCLE)), world.getRegistryKey());
+   private void synchronizeTime(ServerLevel p_276371_) {
+      this.playerList.broadcastAll(new ClientboundSetTimePacket(p_276371_.getGameTime(), p_276371_.getDayTime(), p_276371_.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT)), p_276371_.dimension());
    }
 
-   public void sendTimeUpdatePackets() {
+   public void forceTimeSynchronization() {
       this.profiler.push("timeSync");
-      Iterator var1 = this.getWorlds().iterator();
 
-      while(var1.hasNext()) {
-         ServerWorld lv = (ServerWorld)var1.next();
-         this.sendTimeUpdatePackets(lv);
+      for(ServerLevel serverlevel : this.getAllLevels()) {
+         this.synchronizeTime(serverlevel);
       }
 
       this.profiler.pop();
    }
 
-   public boolean isNetherAllowed() {
+   public boolean isNetherEnabled() {
       return true;
    }
 
-   public void addServerGuiTickable(Runnable tickable) {
-      this.serverGuiTickables.add(tickable);
+   public void addTickable(Runnable p_129947_) {
+      this.tickables.add(p_129947_);
    }
 
-   protected void setServerId(String serverId) {
-      this.serverId = serverId;
+   protected void setId(String p_129949_) {
+      this.serverId = p_129949_;
    }
 
-   public boolean isStopping() {
+   public boolean isShutdown() {
       return !this.serverThread.isAlive();
    }
 
-   public File getFile(String path) {
-      return new File(this.getRunDirectory(), path);
+   public File getFile(String p_129972_) {
+      return new File(this.getServerDirectory(), p_129972_);
    }
 
-   public final ServerWorld getOverworld() {
-      return (ServerWorld)this.worlds.get(World.OVERWORLD);
+   public final ServerLevel overworld() {
+      return this.levels.get(Level.OVERWORLD);
    }
 
    @Nullable
-   public ServerWorld getWorld(RegistryKey key) {
-      return (ServerWorld)this.worlds.get(key);
+   public ServerLevel getLevel(ResourceKey<Level> p_129881_) {
+      return this.levels.get(p_129881_);
    }
 
-   public Set getWorldRegistryKeys() {
-      return this.worlds.keySet();
+   public Set<ResourceKey<Level>> levelKeys() {
+      return this.levels.keySet();
    }
 
-   public Iterable getWorlds() {
-      return this.worlds.values();
+   public Iterable<ServerLevel> getAllLevels() {
+      return this.levels.values();
    }
 
-   public String getVersion() {
-      return SharedConstants.getGameVersion().getName();
+   public String getServerVersion() {
+      return SharedConstants.getCurrentVersion().getName();
    }
 
-   public int getCurrentPlayerCount() {
-      return this.playerManager.getCurrentPlayerCount();
+   public int getPlayerCount() {
+      return this.playerList.getPlayerCount();
    }
 
-   public int getMaxPlayerCount() {
-      return this.playerManager.getMaxPlayerCount();
+   public int getMaxPlayers() {
+      return this.playerList.getMaxPlayers();
    }
 
    public String[] getPlayerNames() {
-      return this.playerManager.getPlayerNames();
+      return this.playerList.getPlayerNamesArray();
    }
 
    @DontObfuscate
@@ -1008,243 +972,237 @@ public abstract class MinecraftServer extends ReentrantThreadExecutor implements
       return "vanilla";
    }
 
-   public SystemDetails addSystemDetails(SystemDetails details) {
-      details.addSection("Server Running", () -> {
+   public SystemReport fillSystemReport(SystemReport p_177936_) {
+      p_177936_.setDetail("Server Running", () -> {
          return Boolean.toString(this.running);
       });
-      if (this.playerManager != null) {
-         details.addSection("Player Count", () -> {
-            int var10000 = this.playerManager.getCurrentPlayerCount();
-            return "" + var10000 + " / " + this.playerManager.getMaxPlayerCount() + "; " + this.playerManager.getPlayerList();
+      if (this.playerList != null) {
+         p_177936_.setDetail("Player Count", () -> {
+            return this.playerList.getPlayerCount() + " / " + this.playerList.getMaxPlayers() + "; " + this.playerList.getPlayers();
          });
       }
 
-      details.addSection("Data Packs", () -> {
-         return (String)this.dataPackManager.getEnabledProfiles().stream().map((profile) -> {
-            String var10000 = profile.getName();
-            return var10000 + (profile.getCompatibility().isCompatible() ? "" : " (incompatible)");
+      p_177936_.setDetail("Data Packs", () -> {
+         return this.packRepository.getSelectedPacks().stream().map((p_248087_) -> {
+            return p_248087_.getId() + (p_248087_.getCompatibility().isCompatible() ? "" : " (incompatible)");
          }).collect(Collectors.joining(", "));
       });
-      details.addSection("Enabled Feature Flags", () -> {
-         return (String)FeatureFlags.FEATURE_MANAGER.toId(this.saveProperties.getEnabledFeatures()).stream().map(Identifier::toString).collect(Collectors.joining(", "));
+      p_177936_.setDetail("Enabled Feature Flags", () -> {
+         return FeatureFlags.REGISTRY.toNames(this.worldData.enabledFeatures()).stream().map(ResourceLocation::toString).collect(Collectors.joining(", "));
       });
-      details.addSection("World Generation", () -> {
-         return this.saveProperties.getLifecycle().toString();
+      p_177936_.setDetail("World Generation", () -> {
+         return this.worldData.worldGenSettingsLifecycle().toString();
       });
       if (this.serverId != null) {
-         details.addSection("Server Id", () -> {
+         p_177936_.setDetail("Server Id", () -> {
             return this.serverId;
          });
       }
 
-      return this.addExtraSystemDetails(details);
+      return this.fillServerSystemReport(p_177936_);
    }
 
-   public abstract SystemDetails addExtraSystemDetails(SystemDetails details);
+   public abstract SystemReport fillServerSystemReport(SystemReport p_177901_);
 
-   public ModStatus getModStatus() {
-      return ModStatus.check("vanilla", this::getServerModName, "Server", MinecraftServer.class);
+   public ModCheck getModdedStatus() {
+      return ModCheck.identify("vanilla", this::getServerModName, "Server", MinecraftServer.class);
    }
 
-   public void sendMessage(Text message) {
-      LOGGER.info(message.getString());
+   public void sendSystemMessage(Component p_236736_) {
+      LOGGER.info(p_236736_.getString());
    }
 
    public KeyPair getKeyPair() {
       return this.keyPair;
    }
 
-   public int getServerPort() {
-      return this.serverPort;
+   public int getPort() {
+      return this.port;
    }
 
-   public void setServerPort(int serverPort) {
-      this.serverPort = serverPort;
+   public void setPort(int p_129802_) {
+      this.port = p_129802_;
    }
 
    @Nullable
-   public GameProfile getHostProfile() {
-      return this.hostProfile;
+   public GameProfile getSingleplayerProfile() {
+      return this.singleplayerProfile;
    }
 
-   public void setHostProfile(@Nullable GameProfile hostProfile) {
-      this.hostProfile = hostProfile;
+   public void setSingleplayerProfile(@Nullable GameProfile p_236741_) {
+      this.singleplayerProfile = p_236741_;
    }
 
    public boolean isSingleplayer() {
-      return this.hostProfile != null;
+      return this.singleplayerProfile != null;
    }
 
-   protected void generateKeyPair() {
+   protected void initializeKeyPair() {
       LOGGER.info("Generating keypair");
 
       try {
-         this.keyPair = NetworkEncryptionUtils.generateServerKeyPair();
-      } catch (NetworkEncryptionException var2) {
-         throw new IllegalStateException("Failed to generate key pair", var2);
+         this.keyPair = Crypt.generateKeyPair();
+      } catch (CryptException cryptexception) {
+         throw new IllegalStateException("Failed to generate key pair", cryptexception);
       }
    }
 
-   public void setDifficulty(Difficulty difficulty, boolean forceUpdate) {
-      if (forceUpdate || !this.saveProperties.isDifficultyLocked()) {
-         this.saveProperties.setDifficulty(this.saveProperties.isHardcore() ? Difficulty.HARD : difficulty);
-         this.updateMobSpawnOptions();
-         this.getPlayerManager().getPlayerList().forEach(this::sendDifficulty);
+   public void setDifficulty(Difficulty p_129828_, boolean p_129829_) {
+      if (p_129829_ || !this.worldData.isDifficultyLocked()) {
+         this.worldData.setDifficulty(this.worldData.isHardcore() ? Difficulty.HARD : p_129828_);
+         this.updateMobSpawningFlags();
+         this.getPlayerList().getPlayers().forEach(this::sendDifficultyUpdate);
       }
    }
 
-   public int adjustTrackingDistance(int initialDistance) {
-      return initialDistance;
+   public int getScaledTrackingDistance(int p_129935_) {
+      return p_129935_;
    }
 
-   private void updateMobSpawnOptions() {
-      Iterator var1 = this.getWorlds().iterator();
-
-      while(var1.hasNext()) {
-         ServerWorld lv = (ServerWorld)var1.next();
-         lv.setMobSpawnOptions(this.isMonsterSpawningEnabled(), this.shouldSpawnAnimals());
+   private void updateMobSpawningFlags() {
+      for(ServerLevel serverlevel : this.getAllLevels()) {
+         serverlevel.setSpawnSettings(this.isSpawningMonsters(), this.isSpawningAnimals());
       }
 
    }
 
-   public void setDifficultyLocked(boolean locked) {
-      this.saveProperties.setDifficultyLocked(locked);
-      this.getPlayerManager().getPlayerList().forEach(this::sendDifficulty);
+   public void setDifficultyLocked(boolean p_129959_) {
+      this.worldData.setDifficultyLocked(p_129959_);
+      this.getPlayerList().getPlayers().forEach(this::sendDifficultyUpdate);
    }
 
-   private void sendDifficulty(ServerPlayerEntity player) {
-      WorldProperties lv = player.getWorld().getLevelProperties();
-      player.networkHandler.sendPacket(new DifficultyS2CPacket(lv.getDifficulty(), lv.isDifficultyLocked()));
+   private void sendDifficultyUpdate(ServerPlayer p_129939_) {
+      LevelData leveldata = p_129939_.level().getLevelData();
+      p_129939_.connection.send(new ClientboundChangeDifficultyPacket(leveldata.getDifficulty(), leveldata.isDifficultyLocked()));
    }
 
-   public boolean isMonsterSpawningEnabled() {
-      return this.saveProperties.getDifficulty() != Difficulty.PEACEFUL;
+   public boolean isSpawningMonsters() {
+      return this.worldData.getDifficulty() != Difficulty.PEACEFUL;
    }
 
    public boolean isDemo() {
-      return this.demo;
+      return this.isDemo;
    }
 
-   public void setDemo(boolean demo) {
-      this.demo = demo;
+   public void setDemo(boolean p_129976_) {
+      this.isDemo = p_129976_;
    }
 
-   public Optional getResourcePackProperties() {
+   public Optional<MinecraftServer.ServerResourcePackInfo> getServerResourcePack() {
       return Optional.empty();
    }
 
-   public boolean requireResourcePack() {
-      return this.getResourcePackProperties().filter(ServerResourcePackProperties::isRequired).isPresent();
+   public boolean isResourcePackRequired() {
+      return this.getServerResourcePack().filter(MinecraftServer.ServerResourcePackInfo::isRequired).isPresent();
    }
 
-   public abstract boolean isDedicated();
+   public abstract boolean isDedicatedServer();
 
-   public abstract int getRateLimit();
+   public abstract int getRateLimitPacketsPerSecond();
 
-   public boolean isOnlineMode() {
+   public boolean usesAuthentication() {
       return this.onlineMode;
    }
 
-   public void setOnlineMode(boolean onlineMode) {
-      this.onlineMode = onlineMode;
+   public void setUsesAuthentication(boolean p_129986_) {
+      this.onlineMode = p_129986_;
    }
 
-   public boolean shouldPreventProxyConnections() {
+   public boolean getPreventProxyConnections() {
       return this.preventProxyConnections;
    }
 
-   public void setPreventProxyConnections(boolean preventProxyConnections) {
-      this.preventProxyConnections = preventProxyConnections;
+   public void setPreventProxyConnections(boolean p_129994_) {
+      this.preventProxyConnections = p_129994_;
    }
 
-   public boolean shouldSpawnAnimals() {
+   public boolean isSpawningAnimals() {
       return true;
    }
 
-   public boolean shouldSpawnNpcs() {
+   public boolean areNpcsEnabled() {
       return true;
    }
 
-   public abstract boolean isUsingNativeTransport();
+   public abstract boolean isEpollEnabled();
 
-   public boolean isPvpEnabled() {
-      return this.pvpEnabled;
+   public boolean isPvpAllowed() {
+      return this.pvp;
    }
 
-   public void setPvpEnabled(boolean pvpEnabled) {
-      this.pvpEnabled = pvpEnabled;
+   public void setPvpAllowed(boolean p_129998_) {
+      this.pvp = p_129998_;
    }
 
-   public boolean isFlightEnabled() {
-      return this.flightEnabled;
+   public boolean isFlightAllowed() {
+      return this.allowFlight;
    }
 
-   public void setFlightEnabled(boolean flightEnabled) {
-      this.flightEnabled = flightEnabled;
+   public void setFlightAllowed(boolean p_130000_) {
+      this.allowFlight = p_130000_;
    }
 
-   public abstract boolean areCommandBlocksEnabled();
+   public abstract boolean isCommandBlockEnabled();
 
-   public String getServerMotd() {
+   public String getMotd() {
       return this.motd;
    }
 
-   public void setMotd(String motd) {
-      this.motd = motd;
+   public void setMotd(String p_129990_) {
+      this.motd = p_129990_;
    }
 
    public boolean isStopped() {
       return this.stopped;
    }
 
-   public PlayerManager getPlayerManager() {
-      return this.playerManager;
+   public PlayerList getPlayerList() {
+      return this.playerList;
    }
 
-   public void setPlayerManager(PlayerManager playerManager) {
-      this.playerManager = playerManager;
+   public void setPlayerList(PlayerList p_129824_) {
+      this.playerList = p_129824_;
    }
 
-   public abstract boolean isRemote();
+   public abstract boolean isPublished();
 
-   public void setDefaultGameMode(GameMode gameMode) {
-      this.saveProperties.setGameMode(gameMode);
+   public void setDefaultGameType(GameType p_129832_) {
+      this.worldData.setGameType(p_129832_);
    }
 
-   @Nullable
-   public ServerNetworkIo getNetworkIo() {
-      return this.networkIo;
+   public ServerConnectionListener getConnection() {
+      return this.connection;
    }
 
-   public boolean isLoading() {
-      return this.loading;
+   public boolean isReady() {
+      return this.isReady;
    }
 
    public boolean hasGui() {
       return false;
    }
 
-   public boolean openToLan(@Nullable GameMode gameMode, boolean cheatsAllowed, int port) {
+   public boolean publishServer(@Nullable GameType p_129833_, boolean p_129834_, int p_129835_) {
       return false;
    }
 
-   public int getTicks() {
-      return this.ticks;
+   public int getTickCount() {
+      return this.tickCount;
    }
 
    public int getSpawnProtectionRadius() {
       return 16;
    }
 
-   public boolean isSpawnProtected(ServerWorld world, BlockPos pos, PlayerEntity player) {
+   public boolean isUnderSpawnProtection(ServerLevel p_129811_, BlockPos p_129812_, Player p_129813_) {
       return false;
    }
 
-   public boolean acceptsStatusQuery() {
+   public boolean repliesToStatus() {
       return true;
    }
 
-   public boolean hideOnlinePlayers() {
+   public boolean hidesOnlinePlayers() {
       return false;
    }
 
@@ -1256,158 +1214,151 @@ public abstract class MinecraftServer extends ReentrantThreadExecutor implements
       return this.playerIdleTimeout;
    }
 
-   public void setPlayerIdleTimeout(int playerIdleTimeout) {
-      this.playerIdleTimeout = playerIdleTimeout;
+   public void setPlayerIdleTimeout(int p_129978_) {
+      this.playerIdleTimeout = p_129978_;
    }
 
    public MinecraftSessionService getSessionService() {
-      return this.apiServices.sessionService();
-   }
-
-   public SignatureVerifier getServicesSignatureVerifier() {
-      return this.apiServices.serviceSignatureVerifier();
-   }
-
-   public GameProfileRepository getGameProfileRepo() {
-      return this.apiServices.profileRepository();
-   }
-
-   public UserCache getUserCache() {
-      return this.apiServices.userCache();
+      return this.services.sessionService();
    }
 
    @Nullable
-   public ServerMetadata getServerMetadata() {
-      return this.metadata;
+   public SignatureValidator getProfileKeySignatureValidator() {
+      return this.services.profileKeySignatureValidator();
    }
 
-   public void forcePlayerSampleUpdate() {
-      this.lastPlayerSampleUpdate = 0L;
+   public GameProfileRepository getProfileRepository() {
+      return this.services.profileRepository();
    }
 
-   public int getMaxWorldBorderRadius() {
+   @Nullable
+   public GameProfileCache getProfileCache() {
+      return this.services.profileCache();
+   }
+
+   @Nullable
+   public ServerStatus getStatus() {
+      return this.status;
+   }
+
+   public void invalidateStatus() {
+      this.lastServerStatus = 0L;
+   }
+
+   public int getAbsoluteMaxWorldSize() {
       return 29999984;
    }
 
-   public boolean shouldExecuteAsync() {
-      return super.shouldExecuteAsync() && !this.isStopped();
+   public boolean scheduleExecutables() {
+      return super.scheduleExecutables() && !this.isStopped();
    }
 
-   public void executeSync(Runnable runnable) {
+   public void executeIfPossible(Runnable p_202482_) {
       if (this.isStopped()) {
          throw new RejectedExecutionException("Server already shutting down");
       } else {
-         super.executeSync(runnable);
+         super.executeIfPossible(p_202482_);
       }
    }
 
-   public Thread getThread() {
+   public Thread getRunningThread() {
       return this.serverThread;
    }
 
-   public int getNetworkCompressionThreshold() {
+   public int getCompressionThreshold() {
       return 256;
    }
 
-   public boolean shouldEnforceSecureProfile() {
+   public boolean enforceSecureProfile() {
       return false;
    }
 
-   public long getTimeReference() {
-      return this.timeReference;
+   public long getNextTickTime() {
+      return this.nextTickTime;
    }
 
-   public DataFixer getDataFixer() {
-      return this.dataFixer;
+   public DataFixer getFixerUpper() {
+      return this.fixerUpper;
    }
 
-   public int getSpawnRadius(@Nullable ServerWorld world) {
-      return world != null ? world.getGameRules().getInt(GameRules.SPAWN_RADIUS) : 10;
+   public int getSpawnRadius(@Nullable ServerLevel p_129804_) {
+      return p_129804_ != null ? p_129804_.getGameRules().getInt(GameRules.RULE_SPAWN_RADIUS) : 10;
    }
 
-   public ServerAdvancementLoader getAdvancementLoader() {
-      return this.resourceManagerHolder.dataPackContents.getServerAdvancementLoader();
+   public ServerAdvancementManager getAdvancements() {
+      return this.resources.managers.getAdvancements();
    }
 
-   public CommandFunctionManager getCommandFunctionManager() {
-      return this.commandFunctionManager;
+   public ServerFunctionManager getFunctions() {
+      return this.functionManager;
    }
 
-   public CompletableFuture reloadResources(Collection dataPacks) {
-      DynamicRegistryManager.Immutable lv = this.combinedDynamicRegistries.getPrecedingRegistryManagers(ServerDynamicRegistryType.RELOADABLE);
-      CompletableFuture completableFuture = CompletableFuture.supplyAsync(() -> {
-         Stream var10000 = dataPacks.stream();
-         ResourcePackManager var10001 = this.dataPackManager;
-         Objects.requireNonNull(var10001);
-         return (ImmutableList)var10000.map(var10001::getProfile).filter(Objects::nonNull).map(ResourcePackProfile::createResourcePack).collect(ImmutableList.toImmutableList());
-      }, this).thenCompose((resourcePacks) -> {
-         LifecycledResourceManager lvx = new LifecycledResourceManagerImpl(ResourceType.SERVER_DATA, resourcePacks);
-         return DataPackContents.reload(lvx, lv, this.saveProperties.getEnabledFeatures(), this.isDedicated() ? CommandManager.RegistrationEnvironment.DEDICATED : CommandManager.RegistrationEnvironment.INTEGRATED, this.getFunctionPermissionLevel(), this.workerExecutor, this).whenComplete((dataPackContents, throwable) -> {
-            if (throwable != null) {
-               lvx.close();
+   public CompletableFuture<Void> reloadResources(Collection<String> p_129862_) {
+      RegistryAccess.Frozen registryaccess$frozen = this.registries.getAccessForLoading(RegistryLayer.RELOADABLE);
+      CompletableFuture<Void> completablefuture = CompletableFuture.supplyAsync(() -> {
+         return p_129862_.stream().map(this.packRepository::getPack).filter(Objects::nonNull).map(Pack::open).collect(ImmutableList.toImmutableList());
+      }, this).thenCompose((p_248092_) -> {
+         CloseableResourceManager closeableresourcemanager = new MultiPackResourceManager(PackType.SERVER_DATA, p_248092_);
+         return ReloadableServerResources.loadResources(closeableresourcemanager, registryaccess$frozen, this.worldData.enabledFeatures(), this.isDedicatedServer() ? Commands.CommandSelection.DEDICATED : Commands.CommandSelection.INTEGRATED, this.getFunctionCompilationLevel(), this.executor, this).whenComplete((p_212907_, p_212908_) -> {
+            if (p_212908_ != null) {
+               closeableresourcemanager.close();
             }
 
-         }).thenApply((dataPackContents) -> {
-            return new ResourceManagerHolder(lvx, dataPackContents);
+         }).thenApply((p_212904_) -> {
+            return new MinecraftServer.ReloadableResources(closeableresourcemanager, p_212904_);
          });
-      }).thenAcceptAsync((resourceManagerHolder) -> {
-         this.resourceManagerHolder.close();
-         this.resourceManagerHolder = resourceManagerHolder;
-         this.dataPackManager.setEnabledProfiles(dataPacks);
-         DataConfiguration lv = new DataConfiguration(createDataPackSettings(this.dataPackManager), this.saveProperties.getEnabledFeatures());
-         this.saveProperties.updateLevelInfo(lv);
-         this.resourceManagerHolder.dataPackContents.refresh(this.getRegistryManager());
-         this.getPlayerManager().saveAllPlayerData();
-         this.getPlayerManager().onDataPacksReloaded();
-         this.commandFunctionManager.setFunctions(this.resourceManagerHolder.dataPackContents.getFunctionLoader());
-         this.structureTemplateManager.setResourceManager(this.resourceManagerHolder.resourceManager);
+      }).thenAcceptAsync((p_248090_) -> {
+         this.resources.close();
+         this.resources = p_248090_;
+         this.packRepository.setSelected(p_129862_);
+         WorldDataConfiguration worlddataconfiguration = new WorldDataConfiguration(getSelectedPacks(this.packRepository), this.worldData.enabledFeatures());
+         this.worldData.setDataConfiguration(worlddataconfiguration);
+         this.resources.managers.updateRegistryTags(this.registryAccess());
+         this.getPlayerList().saveAll();
+         this.getPlayerList().reloadResources();
+         this.functionManager.replaceLibrary(this.resources.managers.getFunctionLibrary());
+         this.structureTemplateManager.onResourceManagerReload(this.resources.resourceManager);
       }, this);
-      if (this.isOnThread()) {
-         Objects.requireNonNull(completableFuture);
-         this.runTasks(completableFuture::isDone);
+      if (this.isSameThread()) {
+         this.managedBlock(completablefuture::isDone);
       }
 
-      return completableFuture;
+      return completablefuture;
    }
 
-   public static DataConfiguration loadDataPacks(ResourcePackManager resourcePackManager, DataPackSettings dataPackSettings, boolean safeMode, FeatureSet enabledFeatures) {
-      resourcePackManager.scanPacks();
-      if (safeMode) {
-         resourcePackManager.setEnabledProfiles(Collections.singleton("vanilla"));
-         return DataConfiguration.SAFE_MODE;
+   public static WorldDataConfiguration configurePackRepository(PackRepository p_248681_, DataPackConfig p_248920_, boolean p_249869_, FeatureFlagSet p_251243_) {
+      p_248681_.reload();
+      if (p_249869_) {
+         p_248681_.setSelected(Collections.singleton("vanilla"));
+         return WorldDataConfiguration.DEFAULT;
       } else {
-         Set set = Sets.newLinkedHashSet();
-         Iterator var5 = dataPackSettings.getEnabled().iterator();
+         Set<String> set = Sets.newLinkedHashSet();
 
-         while(var5.hasNext()) {
-            String string = (String)var5.next();
-            if (resourcePackManager.hasProfile(string)) {
-               set.add(string);
+         for(String s : p_248920_.getEnabled()) {
+            if (p_248681_.isAvailable(s)) {
+               set.add(s);
             } else {
-               LOGGER.warn("Missing data pack {}", string);
+               LOGGER.warn("Missing data pack {}", (Object)s);
             }
          }
 
-         var5 = resourcePackManager.getProfiles().iterator();
-
-         while(var5.hasNext()) {
-            ResourcePackProfile lv = (ResourcePackProfile)var5.next();
-            String string2 = lv.getName();
-            if (!dataPackSettings.getDisabled().contains(string2)) {
-               FeatureSet lv2 = lv.getRequestedFeatures();
-               boolean bl2 = set.contains(string2);
-               if (!bl2 && lv.getSource().canBeEnabledLater()) {
-                  if (lv2.isSubsetOf(enabledFeatures)) {
-                     LOGGER.info("Found new data pack {}, loading it automatically", string2);
-                     set.add(string2);
+         for(Pack pack : p_248681_.getAvailablePacks()) {
+            String s1 = pack.getId();
+            if (!p_248920_.getDisabled().contains(s1)) {
+               FeatureFlagSet featureflagset = pack.getRequestedFeatures();
+               boolean flag = set.contains(s1);
+               if (!flag && pack.getPackSource().shouldAddAutomatically()) {
+                  if (featureflagset.isSubsetOf(p_251243_)) {
+                     LOGGER.info("Found new data pack {}, loading it automatically", (Object)s1);
+                     set.add(s1);
                   } else {
-                     LOGGER.info("Found new data pack {}, but can't load it due to missing features {}", string2, FeatureFlags.printMissingFlags(enabledFeatures, lv2));
+                     LOGGER.info("Found new data pack {}, but can't load it due to missing features {}", s1, FeatureFlags.printMissingFlags(p_251243_, featureflagset));
                   }
                }
 
-               if (bl2 && !lv2.isSubsetOf(enabledFeatures)) {
-                  LOGGER.warn("Pack {} requires features {} that are not enabled for this world, disabling pack.", string2, FeatureFlags.printMissingFlags(enabledFeatures, lv2));
-                  set.remove(string2);
+               if (flag && !featureflagset.isSubsetOf(p_251243_)) {
+                  LOGGER.warn("Pack {} requires features {} that are not enabled for this world, disabling pack.", s1, FeatureFlags.printMissingFlags(p_251243_, featureflagset));
+                  set.remove(s1);
                }
             }
          }
@@ -1417,444 +1368,331 @@ public abstract class MinecraftServer extends ReentrantThreadExecutor implements
             set.add("vanilla");
          }
 
-         resourcePackManager.setEnabledProfiles(set);
-         DataPackSettings lv3 = createDataPackSettings(resourcePackManager);
-         FeatureSet lv4 = resourcePackManager.getRequestedFeatures();
-         return new DataConfiguration(lv3, lv4);
+         p_248681_.setSelected(set);
+         DataPackConfig datapackconfig = getSelectedPacks(p_248681_);
+         FeatureFlagSet featureflagset1 = p_248681_.getRequestedFeatureFlags();
+         return new WorldDataConfiguration(datapackconfig, featureflagset1);
       }
    }
 
-   private static DataPackSettings createDataPackSettings(ResourcePackManager dataPackManager) {
-      Collection collection = dataPackManager.getEnabledNames();
-      List list = ImmutableList.copyOf(collection);
-      List list2 = (List)dataPackManager.getNames().stream().filter((name) -> {
-         return !collection.contains(name);
+   private static DataPackConfig getSelectedPacks(PackRepository p_129818_) {
+      Collection<String> collection = p_129818_.getSelectedIds();
+      List<String> list = ImmutableList.copyOf(collection);
+      List<String> list1 = p_129818_.getAvailableIds().stream().filter((p_212916_) -> {
+         return !collection.contains(p_212916_);
       }).collect(ImmutableList.toImmutableList());
-      return new DataPackSettings(list, list2);
+      return new DataPackConfig(list, list1);
    }
 
-   public void kickNonWhitelistedPlayers(ServerCommandSource source) {
+   public void kickUnlistedPlayers(CommandSourceStack p_129850_) {
       if (this.isEnforceWhitelist()) {
-         PlayerManager lv = source.getServer().getPlayerManager();
-         Whitelist lv2 = lv.getWhitelist();
-         List list = Lists.newArrayList(lv.getPlayerList());
-         Iterator var5 = list.iterator();
+         PlayerList playerlist = p_129850_.getServer().getPlayerList();
+         UserWhiteList userwhitelist = playerlist.getWhiteList();
 
-         while(var5.hasNext()) {
-            ServerPlayerEntity lv3 = (ServerPlayerEntity)var5.next();
-            if (!lv2.isAllowed(lv3.getGameProfile())) {
-               lv3.networkHandler.disconnect(Text.translatable("multiplayer.disconnect.not_whitelisted"));
+         for(ServerPlayer serverplayer : Lists.newArrayList(playerlist.getPlayers())) {
+            if (!userwhitelist.isWhiteListed(serverplayer.getGameProfile())) {
+               serverplayer.connection.disconnect(Component.translatable("multiplayer.disconnect.not_whitelisted"));
             }
          }
 
       }
    }
 
-   public ResourcePackManager getDataPackManager() {
-      return this.dataPackManager;
+   public PackRepository getPackRepository() {
+      return this.packRepository;
    }
 
-   public CommandManager getCommandManager() {
-      return this.resourceManagerHolder.dataPackContents.getCommandManager();
+   public Commands getCommands() {
+      return this.resources.managers.getCommands();
    }
 
-   public ServerCommandSource getCommandSource() {
-      ServerWorld lv = this.getOverworld();
-      return new ServerCommandSource(this, lv == null ? Vec3d.ZERO : Vec3d.of(lv.getSpawnPos()), Vec2f.ZERO, lv, 4, "Server", Text.literal("Server"), this, (Entity)null);
+   public CommandSourceStack createCommandSourceStack() {
+      ServerLevel serverlevel = this.overworld();
+      return new CommandSourceStack(this, serverlevel == null ? Vec3.ZERO : Vec3.atLowerCornerOf(serverlevel.getSharedSpawnPos()), Vec2.ZERO, serverlevel, 4, "Server", Component.literal("Server"), this, (Entity)null);
    }
 
-   public boolean shouldReceiveFeedback() {
+   public boolean acceptsSuccess() {
       return true;
    }
 
-   public boolean shouldTrackOutput() {
+   public boolean acceptsFailure() {
       return true;
    }
 
-   public abstract boolean shouldBroadcastConsoleToOps();
+   public abstract boolean shouldInformAdmins();
 
    public RecipeManager getRecipeManager() {
-      return this.resourceManagerHolder.dataPackContents.getRecipeManager();
+      return this.resources.managers.getRecipeManager();
    }
 
    public ServerScoreboard getScoreboard() {
       return this.scoreboard;
    }
 
-   public DataCommandStorage getDataCommandStorage() {
-      if (this.dataCommandStorage == null) {
+   public CommandStorage getCommandStorage() {
+      if (this.commandStorage == null) {
          throw new NullPointerException("Called before server init");
       } else {
-         return this.dataCommandStorage;
+         return this.commandStorage;
       }
    }
 
-   public LootManager getLootManager() {
-      return this.resourceManagerHolder.dataPackContents.getLootManager();
+   public LootDataManager getLootData() {
+      return this.resources.managers.getLootData();
    }
 
    public GameRules getGameRules() {
-      return this.getOverworld().getGameRules();
+      return this.overworld().getGameRules();
    }
 
-   public BossBarManager getBossBarManager() {
-      return this.bossBarManager;
+   public CustomBossEvents getCustomBossEvents() {
+      return this.customBossEvents;
    }
 
    public boolean isEnforceWhitelist() {
       return this.enforceWhitelist;
    }
 
-   public void setEnforceWhitelist(boolean enforceWhitelist) {
-      this.enforceWhitelist = enforceWhitelist;
+   public void setEnforceWhitelist(boolean p_130005_) {
+      this.enforceWhitelist = p_130005_;
    }
 
-   public float getTickTime() {
-      return this.tickTime;
+   public float getAverageTickTime() {
+      return this.averageTickTime;
    }
 
-   public int getPermissionLevel(GameProfile profile) {
-      if (this.getPlayerManager().isOperator(profile)) {
-         OperatorEntry lv = (OperatorEntry)this.getPlayerManager().getOpList().get(profile);
-         if (lv != null) {
-            return lv.getPermissionLevel();
-         } else if (this.isHost(profile)) {
+   public int getProfilePermissions(GameProfile p_129945_) {
+      if (this.getPlayerList().isOp(p_129945_)) {
+         ServerOpListEntry serveroplistentry = this.getPlayerList().getOps().get(p_129945_);
+         if (serveroplistentry != null) {
+            return serveroplistentry.getLevel();
+         } else if (this.isSingleplayerOwner(p_129945_)) {
             return 4;
          } else if (this.isSingleplayer()) {
-            return this.getPlayerManager().areCheatsAllowed() ? 4 : 0;
+            return this.getPlayerList().isAllowCheatsForAllPlayers() ? 4 : 0;
          } else {
-            return this.getOpPermissionLevel();
+            return this.getOperatorUserPermissionLevel();
          }
       } else {
          return 0;
       }
    }
 
-   public MetricsData getMetricsData() {
-      return this.metricsData;
-   }
-
-   public Profiler getProfiler() {
+   public ProfilerFiller getProfiler() {
       return this.profiler;
    }
 
-   public abstract boolean isHost(GameProfile profile);
+   public abstract boolean isSingleplayerOwner(GameProfile p_129840_);
 
-   public void dumpProperties(Path file) throws IOException {
+   public void dumpServerProperties(Path p_177911_) throws IOException {
    }
 
-   private void dump(Path path) {
-      Path path2 = path.resolve("levels");
+   private void saveDebugReport(Path p_129860_) {
+      Path path = p_129860_.resolve("levels");
 
       try {
-         Iterator var3 = this.worlds.entrySet().iterator();
-
-         while(var3.hasNext()) {
-            Map.Entry entry = (Map.Entry)var3.next();
-            Identifier lv = ((RegistryKey)entry.getKey()).getValue();
-            Path path3 = path2.resolve(lv.getNamespace()).resolve(lv.getPath());
-            Files.createDirectories(path3);
-            ((ServerWorld)entry.getValue()).dump(path3);
+         for(Map.Entry<ResourceKey<Level>, ServerLevel> entry : this.levels.entrySet()) {
+            ResourceLocation resourcelocation = entry.getKey().location();
+            Path path1 = path.resolve(resourcelocation.getNamespace()).resolve(resourcelocation.getPath());
+            Files.createDirectories(path1);
+            entry.getValue().saveDebugReport(path1);
          }
 
-         this.dumpGamerules(path.resolve("gamerules.txt"));
-         this.dumpClasspath(path.resolve("classpath.txt"));
-         this.dumpStats(path.resolve("stats.txt"));
-         this.dumpThreads(path.resolve("threads.txt"));
-         this.dumpProperties(path.resolve("server.properties.txt"));
-         this.dumpNativeModules(path.resolve("modules.txt"));
-      } catch (IOException var7) {
-         LOGGER.warn("Failed to save debug report", var7);
+         this.dumpGameRules(p_129860_.resolve("gamerules.txt"));
+         this.dumpClasspath(p_129860_.resolve("classpath.txt"));
+         this.dumpMiscStats(p_129860_.resolve("stats.txt"));
+         this.dumpThreads(p_129860_.resolve("threads.txt"));
+         this.dumpServerProperties(p_129860_.resolve("server.properties.txt"));
+         this.dumpNativeModules(p_129860_.resolve("modules.txt"));
+      } catch (IOException ioexception) {
+         LOGGER.warn("Failed to save debug report", (Throwable)ioexception);
       }
 
    }
 
-   private void dumpStats(Path path) throws IOException {
-      Writer writer = Files.newBufferedWriter(path);
-
-      try {
-         writer.write(String.format(Locale.ROOT, "pending_tasks: %d\n", this.getTaskCount()));
-         writer.write(String.format(Locale.ROOT, "average_tick_time: %f\n", this.getTickTime()));
-         writer.write(String.format(Locale.ROOT, "tick_times: %s\n", Arrays.toString(this.lastTickLengths)));
-         writer.write(String.format(Locale.ROOT, "queue: %s\n", Util.getMainWorkerExecutor()));
-      } catch (Throwable var6) {
-         if (writer != null) {
-            try {
-               writer.close();
-            } catch (Throwable var5) {
-               var6.addSuppressed(var5);
-            }
-         }
-
-         throw var6;
-      }
-
-      if (writer != null) {
-         writer.close();
+   private void dumpMiscStats(Path p_129951_) throws IOException {
+      try (Writer writer = Files.newBufferedWriter(p_129951_)) {
+         writer.write(String.format(Locale.ROOT, "pending_tasks: %d\n", this.getPendingTasksCount()));
+         writer.write(String.format(Locale.ROOT, "average_tick_time: %f\n", this.getAverageTickTime()));
+         writer.write(String.format(Locale.ROOT, "tick_times: %s\n", Arrays.toString(this.tickTimes)));
+         writer.write(String.format(Locale.ROOT, "queue: %s\n", Util.backgroundExecutor()));
       }
 
    }
 
-   private void dumpGamerules(Path path) throws IOException {
-      Writer writer = Files.newBufferedWriter(path);
-
-      try {
-         final List list = Lists.newArrayList();
-         final GameRules lv = this.getGameRules();
-         GameRules.accept(new GameRules.Visitor() {
-            public void visit(GameRules.Key key, GameRules.Type type) {
-               list.add(String.format(Locale.ROOT, "%s=%s\n", key.getName(), lv.get(key)));
+   private void dumpGameRules(Path p_129984_) throws IOException {
+      try (Writer writer = Files.newBufferedWriter(p_129984_)) {
+         final List<String> list = Lists.newArrayList();
+         final GameRules gamerules = this.getGameRules();
+         GameRules.visitGameRuleTypes(new GameRules.GameRuleTypeVisitor() {
+            public <T extends GameRules.Value<T>> void visit(GameRules.Key<T> p_195531_, GameRules.Type<T> p_195532_) {
+               list.add(String.format(Locale.ROOT, "%s=%s\n", p_195531_.getId(), gamerules.<T>getRule(p_195531_)));
             }
          });
-         Iterator var5 = list.iterator();
 
-         while(var5.hasNext()) {
-            String string = (String)var5.next();
-            writer.write(string);
+         for(String s : list) {
+            writer.write(s);
          }
-      } catch (Throwable var8) {
-         if (writer != null) {
-            try {
-               writer.close();
-            } catch (Throwable var7) {
-               var8.addSuppressed(var7);
-            }
-         }
-
-         throw var8;
-      }
-
-      if (writer != null) {
-         writer.close();
       }
 
    }
 
-   private void dumpClasspath(Path path) throws IOException {
-      Writer writer = Files.newBufferedWriter(path);
+   private void dumpClasspath(Path p_129992_) throws IOException {
+      try (Writer writer = Files.newBufferedWriter(p_129992_)) {
+         String s = System.getProperty("java.class.path");
+         String s1 = System.getProperty("path.separator");
 
-      try {
-         String string = System.getProperty("java.class.path");
-         String string2 = System.getProperty("path.separator");
-         Iterator var5 = Splitter.on(string2).split(string).iterator();
-
-         while(var5.hasNext()) {
-            String string3 = (String)var5.next();
-            writer.write(string3);
+         for(String s2 : Splitter.on(s1).split(s)) {
+            writer.write(s2);
             writer.write("\n");
          }
-      } catch (Throwable var8) {
-         if (writer != null) {
-            try {
-               writer.close();
-            } catch (Throwable var7) {
-               var8.addSuppressed(var7);
-            }
-         }
-
-         throw var8;
-      }
-
-      if (writer != null) {
-         writer.close();
       }
 
    }
 
-   private void dumpThreads(Path path) throws IOException {
-      ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-      ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(true, true);
-      Arrays.sort(threadInfos, Comparator.comparing(ThreadInfo::getThreadName));
-      Writer writer = Files.newBufferedWriter(path);
+   private void dumpThreads(Path p_129996_) throws IOException {
+      ThreadMXBean threadmxbean = ManagementFactory.getThreadMXBean();
+      ThreadInfo[] athreadinfo = threadmxbean.dumpAllThreads(true, true);
+      Arrays.sort(athreadinfo, Comparator.comparing(ThreadInfo::getThreadName));
 
-      try {
-         ThreadInfo[] var5 = threadInfos;
-         int var6 = threadInfos.length;
-
-         for(int var7 = 0; var7 < var6; ++var7) {
-            ThreadInfo threadInfo = var5[var7];
-            writer.write(threadInfo.toString());
+      try (Writer writer = Files.newBufferedWriter(p_129996_)) {
+         for(ThreadInfo threadinfo : athreadinfo) {
+            writer.write(threadinfo.toString());
             writer.write(10);
          }
-      } catch (Throwable var10) {
-         if (writer != null) {
-            try {
-               writer.close();
-            } catch (Throwable var9) {
-               var10.addSuppressed(var9);
-            }
-         }
-
-         throw var10;
-      }
-
-      if (writer != null) {
-         writer.close();
       }
 
    }
 
-   private void dumpNativeModules(Path path) throws IOException {
-      Writer writer = Files.newBufferedWriter(path);
-
-      label50: {
+   private void dumpNativeModules(Path p_195522_) throws IOException {
+      try (Writer writer = Files.newBufferedWriter(p_195522_)) {
+         List<NativeModuleLister.NativeModuleInfo> list;
          try {
-            label51: {
-               ArrayList list;
-               try {
-                  list = Lists.newArrayList(WinNativeModuleUtil.collectNativeModules());
-               } catch (Throwable var7) {
-                  LOGGER.warn("Failed to list native modules", var7);
-                  break label51;
-               }
-
-               list.sort(Comparator.comparing((module) -> {
-                  return module.path;
-               }));
-               Iterator var4 = list.iterator();
-
-               while(true) {
-                  if (!var4.hasNext()) {
-                     break label50;
-                  }
-
-                  WinNativeModuleUtil.NativeModule lv = (WinNativeModuleUtil.NativeModule)var4.next();
-                  writer.write(lv.toString());
-                  writer.write(10);
-               }
-            }
-         } catch (Throwable var8) {
-            if (writer != null) {
-               try {
-                  writer.close();
-               } catch (Throwable var6) {
-                  var8.addSuppressed(var6);
-               }
-            }
-
-            throw var8;
+            list = Lists.newArrayList(NativeModuleLister.listModules());
+         } catch (Throwable throwable) {
+            LOGGER.warn("Failed to list native modules", throwable);
+            return;
          }
 
-         if (writer != null) {
-            writer.close();
+         list.sort(Comparator.comparing((p_212910_) -> {
+            return p_212910_.name;
+         }));
+
+         for(NativeModuleLister.NativeModuleInfo nativemodulelister$nativemoduleinfo : list) {
+            writer.write(nativemodulelister$nativemoduleinfo.toString());
+            writer.write(10);
          }
 
-         return;
       }
-
-      if (writer != null) {
-         writer.close();
-      }
-
    }
 
-   private void startTickMetrics() {
-      if (this.needsRecorderSetup) {
-         this.recorder = DebugRecorder.of(new ServerSamplerSource(Util.nanoTimeSupplier, this.isDedicated()), Util.nanoTimeSupplier, Util.getIoWorkerExecutor(), new RecordDumper("server"), this.recorderResultConsumer, (path) -> {
-            this.submitAndJoin(() -> {
-               this.dump(path.resolve("server"));
+   private void startMetricsRecordingTick() {
+      if (this.willStartRecordingMetrics) {
+         this.metricsRecorder = ActiveMetricsRecorder.createStarted(new ServerMetricsSamplersProvider(Util.timeSource, this.isDedicatedServer()), Util.timeSource, Util.ioPool(), new MetricsPersister("server"), this.onMetricsRecordingStopped, (p_212927_) -> {
+            this.executeBlocking(() -> {
+               this.saveDebugReport(p_212927_.resolve("server"));
             });
-            this.recorderDumpConsumer.accept(path);
+            this.onMetricsRecordingFinished.accept(p_212927_);
          });
-         this.needsRecorderSetup = false;
+         this.willStartRecordingMetrics = false;
       }
 
-      this.profiler = TickDurationMonitor.tickProfiler(this.recorder.getProfiler(), TickDurationMonitor.create("Server"));
-      this.recorder.startTick();
+      this.profiler = SingleTickProfiler.decorateFiller(this.metricsRecorder.getProfiler(), SingleTickProfiler.createTickProfiler("Server"));
+      this.metricsRecorder.startTick();
       this.profiler.startTick();
    }
 
-   private void endTickMetrics() {
+   private void endMetricsRecordingTick() {
       this.profiler.endTick();
-      this.recorder.endTick();
+      this.metricsRecorder.endTick();
    }
 
-   public boolean isRecorderActive() {
-      return this.recorder.isActive();
+   public boolean isRecordingMetrics() {
+      return this.metricsRecorder.isRecording();
    }
 
-   public void setupRecorder(Consumer resultConsumer, Consumer dumpConsumer) {
-      this.recorderResultConsumer = (result) -> {
-         this.resetRecorder();
-         resultConsumer.accept(result);
+   public void startRecordingMetrics(Consumer<ProfileResults> p_177924_, Consumer<Path> p_177925_) {
+      this.onMetricsRecordingStopped = (p_212922_) -> {
+         this.stopRecordingMetrics();
+         p_177924_.accept(p_212922_);
       };
-      this.recorderDumpConsumer = dumpConsumer;
-      this.needsRecorderSetup = true;
+      this.onMetricsRecordingFinished = p_177925_;
+      this.willStartRecordingMetrics = true;
    }
 
-   public void resetRecorder() {
-      this.recorder = DummyRecorder.INSTANCE;
+   public void stopRecordingMetrics() {
+      this.metricsRecorder = InactiveMetricsRecorder.INSTANCE;
    }
 
-   public void stopRecorder() {
-      this.recorder.stop();
+   public void finishRecordingMetrics() {
+      this.metricsRecorder.end();
    }
 
-   public void forceStopRecorder() {
-      this.recorder.forceStop();
-      this.profiler = this.recorder.getProfiler();
+   public void cancelRecordingMetrics() {
+      this.metricsRecorder.cancel();
+      this.profiler = this.metricsRecorder.getProfiler();
    }
 
-   public Path getSavePath(WorldSavePath worldSavePath) {
-      return this.session.getDirectory(worldSavePath);
+   public Path getWorldPath(LevelResource p_129844_) {
+      return this.storageSource.getLevelPath(p_129844_);
    }
 
-   public boolean syncChunkWrites() {
+   public boolean forceSynchronousWrites() {
       return true;
    }
 
-   public StructureTemplateManager getStructureTemplateManager() {
+   public StructureTemplateManager getStructureManager() {
       return this.structureTemplateManager;
    }
 
-   public SaveProperties getSaveProperties() {
-      return this.saveProperties;
+   public WorldData getWorldData() {
+      return this.worldData;
    }
 
-   public DynamicRegistryManager.Immutable getRegistryManager() {
-      return this.combinedDynamicRegistries.getCombinedRegistryManager();
+   public RegistryAccess.Frozen registryAccess() {
+      return this.registries.compositeAccess();
    }
 
-   public CombinedDynamicRegistries getCombinedDynamicRegistries() {
-      return this.combinedDynamicRegistries;
+   public LayeredRegistryAccess<RegistryLayer> registries() {
+      return this.registries;
    }
 
-   public TextStream createFilterer(ServerPlayerEntity player) {
-      return TextStream.UNFILTERED;
+   public TextFilter createTextFilterForPlayer(ServerPlayer p_129814_) {
+      return TextFilter.DUMMY;
    }
 
-   public ServerPlayerInteractionManager getPlayerInteractionManager(ServerPlayerEntity player) {
-      return (ServerPlayerInteractionManager)(this.isDemo() ? new DemoServerPlayerInteractionManager(player) : new ServerPlayerInteractionManager(player));
+   public ServerPlayerGameMode createGameModeForPlayer(ServerPlayer p_177934_) {
+      return (ServerPlayerGameMode)(this.isDemo() ? new DemoMode(p_177934_) : new ServerPlayerGameMode(p_177934_));
    }
 
    @Nullable
-   public GameMode getForcedGameMode() {
+   public GameType getForcedGameType() {
       return null;
    }
 
    public ResourceManager getResourceManager() {
-      return this.resourceManagerHolder.resourceManager;
+      return this.resources.resourceManager;
    }
 
-   public boolean isSaving() {
-      return this.saving;
+   public boolean isCurrentlySaving() {
+      return this.isSaving;
    }
 
-   public boolean isDebugRunning() {
-      return this.needsDebugSetup || this.debugStart != null;
+   public boolean isTimeProfilerRunning() {
+      return this.debugCommandProfilerDelayStart || this.debugCommandProfiler != null;
    }
 
-   public void startDebug() {
-      this.needsDebugSetup = true;
+   public void startTimeProfiler() {
+      this.debugCommandProfilerDelayStart = true;
    }
 
-   public ProfileResult stopDebug() {
-      if (this.debugStart == null) {
-         return EmptyProfileResult.INSTANCE;
+   public ProfileResults stopTimeProfiler() {
+      if (this.debugCommandProfiler == null) {
+         return EmptyProfileResults.EMPTY;
       } else {
-         ProfileResult lv = this.debugStart.end(Util.getMeasuringTimeNano(), this.ticks);
-         this.debugStart = null;
-         return lv;
+         ProfileResults profileresults = this.debugCommandProfiler.stop(Util.getNanos(), this.tickCount);
+         this.debugCommandProfiler = null;
+         return profileresults;
       }
    }
 
@@ -1862,127 +1700,72 @@ public abstract class MinecraftServer extends ReentrantThreadExecutor implements
       return 1000000;
    }
 
-   public void logChatMessage(Text message, MessageType.Parameters params, @Nullable String prefix) {
-      String string2 = params.applyChatDecoration(message).getString();
-      if (prefix != null) {
-         LOGGER.info("[{}] {}", prefix, string2);
+   public void logChatMessage(Component p_241503_, ChatType.Bound p_241402_, @Nullable String p_241481_) {
+      String s = p_241402_.decorate(p_241503_).getString();
+      if (p_241481_ != null) {
+         LOGGER.info("[{}] {}", p_241481_, s);
       } else {
-         LOGGER.info("{}", string2);
+         LOGGER.info("{}", (Object)s);
       }
 
    }
 
-   public MessageDecorator getMessageDecorator() {
-      return MessageDecorator.NOOP;
+   public ChatDecorator getChatDecorator() {
+      return ChatDecorator.PLAIN;
    }
 
-   // $FF: synthetic method
-   public void executeTask(Runnable task) {
-      this.executeTask((ServerTask)task);
+   public boolean logIPs() {
+      return true;
    }
 
-   // $FF: synthetic method
-   public boolean canExecute(Runnable task) {
-      return this.canExecute((ServerTask)task);
-   }
-
-   // $FF: synthetic method
-   public Runnable createTask(Runnable runnable) {
-      return this.createTask(runnable);
-   }
-
-   static {
-      DEMO_LEVEL_INFO = new LevelInfo("Demo World", GameMode.SURVIVAL, false, Difficulty.NORMAL, false, new GameRules(), DataConfiguration.SAFE_MODE);
-      ANONYMOUS_PLAYER_PROFILE = new GameProfile(Util.NIL_UUID, "Anonymous Player");
-   }
-
-   private static record ResourceManagerHolder(LifecycledResourceManager resourceManager, DataPackContents dataPackContents) implements AutoCloseable {
-      final LifecycledResourceManager resourceManager;
-      final DataPackContents dataPackContents;
-
-      ResourceManagerHolder(LifecycledResourceManager arg, DataPackContents arg2) {
-         this.resourceManager = arg;
-         this.dataPackContents = arg2;
-      }
-
+   static record ReloadableResources(CloseableResourceManager resourceManager, ReloadableServerResources managers) implements AutoCloseable {
       public void close() {
          this.resourceManager.close();
       }
-
-      public LifecycledResourceManager resourceManager() {
-         return this.resourceManager;
-      }
-
-      public DataPackContents dataPackContents() {
-         return this.dataPackContents;
-      }
    }
 
-   static class DebugStart {
-      final long time;
-      final int tick;
+   public static record ServerResourcePackInfo(String url, String hash, boolean isRequired, @Nullable Component prompt) {
+   }
 
-      DebugStart(long time, int tick) {
-         this.time = time;
-         this.tick = tick;
+   static class TimeProfiler {
+      final long startNanos;
+      final int startTick;
+
+      TimeProfiler(long p_177958_, int p_177959_) {
+         this.startNanos = p_177958_;
+         this.startTick = p_177959_;
       }
 
-      ProfileResult end(final long endTime, final int endTick) {
-         return new ProfileResult() {
-            public List getTimings(String parentPath) {
+      ProfileResults stop(final long p_177961_, final int p_177962_) {
+         return new ProfileResults() {
+            public List<ResultField> getTimes(String p_177972_) {
                return Collections.emptyList();
             }
 
-            public boolean save(Path path) {
+            public boolean saveResults(Path p_177974_) {
                return false;
             }
 
-            public long getStartTime() {
-               return DebugStart.this.time;
+            public long getStartTimeNano() {
+               return TimeProfiler.this.startNanos;
             }
 
-            public int getStartTick() {
-               return DebugStart.this.tick;
+            public int getStartTimeTicks() {
+               return TimeProfiler.this.startTick;
             }
 
-            public long getEndTime() {
-               return endTime;
+            public long getEndTimeNano() {
+               return p_177961_;
             }
 
-            public int getEndTick() {
-               return endTick;
+            public int getEndTimeTicks() {
+               return p_177962_;
             }
 
-            public String getRootTimings() {
+            public String getProfilerResults() {
                return "";
             }
          };
-      }
-   }
-
-   public static record ServerResourcePackProperties(String url, String hash, boolean isRequired, @Nullable Text prompt) {
-      public ServerResourcePackProperties(String string, String string2, boolean bl, @Nullable Text arg) {
-         this.url = string;
-         this.hash = string2;
-         this.isRequired = bl;
-         this.prompt = arg;
-      }
-
-      public String url() {
-         return this.url;
-      }
-
-      public String hash() {
-         return this.hash;
-      }
-
-      public boolean isRequired() {
-         return this.isRequired;
-      }
-
-      @Nullable
-      public Text prompt() {
-         return this.prompt;
       }
    }
 }

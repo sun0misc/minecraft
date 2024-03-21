@@ -1,90 +1,79 @@
 package net.minecraft.client.particle;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.DefaultParticleType;
-import net.minecraft.particle.ParticleEffect;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
-@Environment(EnvType.CLIENT)
-public class CampfireSmokeParticle extends SpriteBillboardParticle {
-   CampfireSmokeParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, boolean signal) {
-      super(world, x, y, z);
+@OnlyIn(Dist.CLIENT)
+public class CampfireSmokeParticle extends TextureSheetParticle {
+   CampfireSmokeParticle(ClientLevel p_105856_, double p_105857_, double p_105858_, double p_105859_, double p_105860_, double p_105861_, double p_105862_, boolean p_105863_) {
+      super(p_105856_, p_105857_, p_105858_, p_105859_);
       this.scale(3.0F);
-      this.setBoundingBoxSpacing(0.25F, 0.25F);
-      if (signal) {
-         this.maxAge = this.random.nextInt(50) + 280;
+      this.setSize(0.25F, 0.25F);
+      if (p_105863_) {
+         this.lifetime = this.random.nextInt(50) + 280;
       } else {
-         this.maxAge = this.random.nextInt(50) + 80;
+         this.lifetime = this.random.nextInt(50) + 80;
       }
 
-      this.gravityStrength = 3.0E-6F;
-      this.velocityX = velocityX;
-      this.velocityY = velocityY + (double)(this.random.nextFloat() / 500.0F);
-      this.velocityZ = velocityZ;
+      this.gravity = 3.0E-6F;
+      this.xd = p_105860_;
+      this.yd = p_105861_ + (double)(this.random.nextFloat() / 500.0F);
+      this.zd = p_105862_;
    }
 
    public void tick() {
-      this.prevPosX = this.x;
-      this.prevPosY = this.y;
-      this.prevPosZ = this.z;
-      if (this.age++ < this.maxAge && !(this.alpha <= 0.0F)) {
-         this.velocityX += (double)(this.random.nextFloat() / 5000.0F * (float)(this.random.nextBoolean() ? 1 : -1));
-         this.velocityZ += (double)(this.random.nextFloat() / 5000.0F * (float)(this.random.nextBoolean() ? 1 : -1));
-         this.velocityY -= (double)this.gravityStrength;
-         this.move(this.velocityX, this.velocityY, this.velocityZ);
-         if (this.age >= this.maxAge - 60 && this.alpha > 0.01F) {
+      this.xo = this.x;
+      this.yo = this.y;
+      this.zo = this.z;
+      if (this.age++ < this.lifetime && !(this.alpha <= 0.0F)) {
+         this.xd += (double)(this.random.nextFloat() / 5000.0F * (float)(this.random.nextBoolean() ? 1 : -1));
+         this.zd += (double)(this.random.nextFloat() / 5000.0F * (float)(this.random.nextBoolean() ? 1 : -1));
+         this.yd -= (double)this.gravity;
+         this.move(this.xd, this.yd, this.zd);
+         if (this.age >= this.lifetime - 60 && this.alpha > 0.01F) {
             this.alpha -= 0.015F;
          }
 
       } else {
-         this.markDead();
+         this.remove();
       }
    }
 
-   public ParticleTextureSheet getType() {
-      return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
    }
 
-   @Environment(EnvType.CLIENT)
-   public static class SignalSmokeFactory implements ParticleFactory {
-      private final SpriteProvider spriteProvider;
+   @OnlyIn(Dist.CLIENT)
+   public static class CosyProvider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprites;
 
-      public SignalSmokeFactory(SpriteProvider spriteProvider) {
-         this.spriteProvider = spriteProvider;
+      public CosyProvider(SpriteSet p_105878_) {
+         this.sprites = p_105878_;
       }
 
-      public Particle createParticle(DefaultParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
-         CampfireSmokeParticle lv = new CampfireSmokeParticle(arg2, d, e, f, g, h, i, true);
-         lv.setAlpha(0.95F);
-         lv.setSprite(this.spriteProvider);
-         return lv;
-      }
-
-      // $FF: synthetic method
-      public Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
-         return this.createParticle((DefaultParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+      public Particle createParticle(SimpleParticleType p_105889_, ClientLevel p_105890_, double p_105891_, double p_105892_, double p_105893_, double p_105894_, double p_105895_, double p_105896_) {
+         CampfireSmokeParticle campfiresmokeparticle = new CampfireSmokeParticle(p_105890_, p_105891_, p_105892_, p_105893_, p_105894_, p_105895_, p_105896_, false);
+         campfiresmokeparticle.setAlpha(0.9F);
+         campfiresmokeparticle.pickSprite(this.sprites);
+         return campfiresmokeparticle;
       }
    }
 
-   @Environment(EnvType.CLIENT)
-   public static class CosySmokeFactory implements ParticleFactory {
-      private final SpriteProvider spriteProvider;
+   @OnlyIn(Dist.CLIENT)
+   public static class SignalProvider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprites;
 
-      public CosySmokeFactory(SpriteProvider spriteProvider) {
-         this.spriteProvider = spriteProvider;
+      public SignalProvider(SpriteSet p_105899_) {
+         this.sprites = p_105899_;
       }
 
-      public Particle createParticle(DefaultParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
-         CampfireSmokeParticle lv = new CampfireSmokeParticle(arg2, d, e, f, g, h, i, false);
-         lv.setAlpha(0.9F);
-         lv.setSprite(this.spriteProvider);
-         return lv;
-      }
-
-      // $FF: synthetic method
-      public Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
-         return this.createParticle((DefaultParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+      public Particle createParticle(SimpleParticleType p_105910_, ClientLevel p_105911_, double p_105912_, double p_105913_, double p_105914_, double p_105915_, double p_105916_, double p_105917_) {
+         CampfireSmokeParticle campfiresmokeparticle = new CampfireSmokeParticle(p_105911_, p_105912_, p_105913_, p_105914_, p_105915_, p_105916_, p_105917_, true);
+         campfiresmokeparticle.setAlpha(0.95F);
+         campfiresmokeparticle.pickSprite(this.sprites);
+         return campfiresmokeparticle;
       }
    }
 }

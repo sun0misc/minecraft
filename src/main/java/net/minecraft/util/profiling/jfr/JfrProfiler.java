@@ -18,52 +18,55 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 import jdk.jfr.Configuration;
+import jdk.jfr.Event;
 import jdk.jfr.FlightRecorder;
 import jdk.jfr.FlightRecorderListener;
 import jdk.jfr.Recording;
 import jdk.jfr.RecordingState;
+import net.minecraft.FileUtil;
 import net.minecraft.SharedConstants;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.PathUtil;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.ChunkPos;
+import net.minecraft.Util;
+import net.minecraft.network.ConnectionProtocol;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.profiling.jfr.callback.ProfiledDuration;
 import net.minecraft.util.profiling.jfr.event.ChunkGenerationEvent;
 import net.minecraft.util.profiling.jfr.event.NetworkSummaryEvent;
 import net.minecraft.util.profiling.jfr.event.PacketReceivedEvent;
 import net.minecraft.util.profiling.jfr.event.PacketSentEvent;
 import net.minecraft.util.profiling.jfr.event.ServerTickTimeEvent;
 import net.minecraft.util.profiling.jfr.event.WorldLoadFinishedEvent;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 
-public class JfrProfiler implements FlightProfiler {
+public class JfrProfiler implements JvmProfiler {
    private static final Logger LOGGER = LogUtils.getLogger();
-   public static final String MINECRAFT = "Minecraft";
-   public static final String WORLD_GENERATION = "World Generation";
-   public static final String TICKING = "Ticking";
-   public static final String NETWORK = "Network";
-   private static final List EVENTS = List.of(ChunkGenerationEvent.class, PacketReceivedEvent.class, PacketSentEvent.class, NetworkSummaryEvent.class, ServerTickTimeEvent.class, WorldLoadFinishedEvent.class);
-   private static final String CONFIG_PATH = "/flightrecorder-config.jfc";
-   private static final DateTimeFormatter DATE_TIME_FORMAT = (new DateTimeFormatterBuilder()).appendPattern("yyyy-MM-dd-HHmmss").toFormatter().withZone(ZoneId.systemDefault());
+   public static final String ROOT_CATEGORY = "Minecraft";
+   public static final String WORLD_GEN_CATEGORY = "World Generation";
+   public static final String TICK_CATEGORY = "Ticking";
+   public static final String NETWORK_CATEGORY = "Network";
+   private static final List<Class<? extends Event>> CUSTOM_EVENTS = List.of(ChunkGenerationEvent.class, PacketReceivedEvent.class, PacketSentEvent.class, NetworkSummaryEvent.class, ServerTickTimeEvent.class, WorldLoadFinishedEvent.class);
+   private static final String FLIGHT_RECORDER_CONFIG = "/flightrecorder-config.jfc";
+   private static final DateTimeFormatter DATE_TIME_FORMATTER = (new DateTimeFormatterBuilder()).appendPattern("yyyy-MM-dd-HHmmss").toFormatter().withZone(ZoneId.systemDefault());
    private static final JfrProfiler INSTANCE = new JfrProfiler();
    @Nullable
-   Recording currentRecording;
-   private float tickTime;
-   private final Map summaryRecorderByAddress = new ConcurrentHashMap();
+   Recording recording;
+   private float currentAverageTickTime;
+   private final Map<String, NetworkSummaryEvent.SumAggregation> networkTrafficByAddress = new ConcurrentHashMap<>();
 
    private JfrProfiler() {
-      EVENTS.forEach(FlightRecorder::register);
+      CUSTOM_EVENTS.forEach(FlightRecorder::register);
       FlightRecorder.addPeriodicEvent(ServerTickTimeEvent.class, () -> {
-         (new ServerTickTimeEvent(this.tickTime)).commit();
+         (new ServerTickTimeEvent(this.currentAverageTickTime)).commit();
       });
       FlightRecorder.addPeriodicEvent(NetworkSummaryEvent.class, () -> {
-         Iterator iterator = this.summaryRecorderByAddress.values().iterator();
+         Iterator<NetworkSummaryEvent.SumAggregation> iterator = this.networkTrafficByAddress.values().iterator();
 
          while(iterator.hasNext()) {
-            ((NetworkSummaryEvent.Recorder)iterator.next()).commit();
+            iterator.next().commitEvent();
             iterator.remove();
          }
 
@@ -74,156 +77,136 @@ public class JfrProfiler implements FlightProfiler {
       return INSTANCE;
    }
 
-   public boolean start(InstanceType instanceType) {
-      URL uRL = JfrProfiler.class.getResource("/flightrecorder-config.jfc");
-      if (uRL == null) {
-         LOGGER.warn("Could not find default flight recorder config at {}", "/flightrecorder-config.jfc");
+   public boolean start(Environment p_185307_) {
+      URL url = JfrProfiler.class.getResource("/flightrecorder-config.jfc");
+      if (url == null) {
+         LOGGER.warn("Could not find default flight recorder config at {}", (Object)"/flightrecorder-config.jfc");
          return false;
       } else {
-         try {
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(uRL.openStream()));
-
-            boolean var4;
-            try {
-               var4 = this.start(bufferedReader, instanceType);
-            } catch (Throwable var7) {
-               try {
-                  bufferedReader.close();
-               } catch (Throwable var6) {
-                  var7.addSuppressed(var6);
-               }
-
-               throw var7;
-            }
-
-            bufferedReader.close();
-            return var4;
-         } catch (IOException var8) {
-            LOGGER.warn("Failed to start flight recorder using configuration at {}", uRL, var8);
+         try (BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(url.openStream()))) {
+            return this.start(bufferedreader, p_185307_);
+         } catch (IOException ioexception) {
+            LOGGER.warn("Failed to start flight recorder using configuration at {}", url, ioexception);
             return false;
          }
       }
    }
 
    public Path stop() {
-      if (this.currentRecording == null) {
+      if (this.recording == null) {
          throw new IllegalStateException("Not currently profiling");
       } else {
-         this.summaryRecorderByAddress.clear();
-         Path path = this.currentRecording.getDestination();
-         this.currentRecording.stop();
+         this.networkTrafficByAddress.clear();
+         Path path = this.recording.getDestination();
+         this.recording.stop();
          return path;
       }
    }
 
-   public boolean isProfiling() {
-      return this.currentRecording != null;
+   public boolean isRunning() {
+      return this.recording != null;
    }
 
    public boolean isAvailable() {
       return FlightRecorder.isAvailable();
    }
 
-   private boolean start(Reader reader, InstanceType instanceType) {
-      if (this.isProfiling()) {
+   private boolean start(Reader p_185317_, Environment p_185318_) {
+      if (this.isRunning()) {
          LOGGER.warn("Profiling already in progress");
          return false;
       } else {
          try {
-            Configuration configuration = Configuration.create(reader);
-            String string = DATE_TIME_FORMAT.format(Instant.now());
-            this.currentRecording = (Recording)Util.make(new Recording(configuration), (recording) -> {
-               List var10000 = EVENTS;
-               Objects.requireNonNull(recording);
-               var10000.forEach(recording::enable);
-               recording.setDumpOnExit(true);
-               recording.setToDisk(true);
-               recording.setName(String.format(Locale.ROOT, "%s-%s-%s", instanceType.getName(), SharedConstants.getGameVersion().getName(), string));
+            Configuration configuration = Configuration.create(p_185317_);
+            String s = DATE_TIME_FORMATTER.format(Instant.now());
+            this.recording = Util.make(new Recording(configuration), (p_185311_) -> {
+               CUSTOM_EVENTS.forEach(p_185311_::enable);
+               p_185311_.setDumpOnExit(true);
+               p_185311_.setToDisk(true);
+               p_185311_.setName(String.format(Locale.ROOT, "%s-%s-%s", p_185318_.getDescription(), SharedConstants.getCurrentVersion().getName(), s));
             });
-            Path path = Paths.get(String.format(Locale.ROOT, "debug/%s-%s.jfr", instanceType.getName(), string));
-            PathUtil.createDirectories(path.getParent());
-            this.currentRecording.setDestination(path);
-            this.currentRecording.start();
-            this.addListener();
-         } catch (ParseException | IOException var6) {
-            LOGGER.warn("Failed to start jfr profiling", var6);
+            Path path = Paths.get(String.format(Locale.ROOT, "debug/%s-%s.jfr", p_185318_.getDescription(), s));
+            FileUtil.createDirectoriesSafe(path.getParent());
+            this.recording.setDestination(path);
+            this.recording.start();
+            this.setupSummaryListener();
+         } catch (ParseException | IOException ioexception) {
+            LOGGER.warn("Failed to start jfr profiling", (Throwable)ioexception);
             return false;
          }
 
-         LOGGER.info("Started flight recorder profiling id({}):name({}) - will dump to {} on exit or stop command", new Object[]{this.currentRecording.getId(), this.currentRecording.getName(), this.currentRecording.getDestination()});
+         LOGGER.info("Started flight recorder profiling id({}):name({}) - will dump to {} on exit or stop command", this.recording.getId(), this.recording.getName(), this.recording.getDestination());
          return true;
       }
    }
 
-   private void addListener() {
+   private void setupSummaryListener() {
       FlightRecorder.addListener(new FlightRecorderListener() {
-         final JfrListener innerListener = new JfrListener(() -> {
-            JfrProfiler.this.currentRecording = null;
+         final SummaryReporter summaryReporter = new SummaryReporter(() -> {
+            JfrProfiler.this.recording = null;
          });
 
-         public void recordingStateChanged(Recording recording) {
-            if (recording == JfrProfiler.this.currentRecording && recording.getState() == RecordingState.STOPPED) {
-               this.innerListener.stop(recording.getDestination());
+         public void recordingStateChanged(Recording p_185339_) {
+            if (p_185339_ == JfrProfiler.this.recording && p_185339_.getState() == RecordingState.STOPPED) {
+               this.summaryReporter.recordingStopped(p_185339_.getDestination());
                FlightRecorder.removeListener(this);
             }
          }
       });
    }
 
-   public void onTick(float tickTime) {
+   public void onServerTick(float p_185300_) {
       if (ServerTickTimeEvent.TYPE.isEnabled()) {
-         this.tickTime = tickTime;
+         this.currentAverageTickTime = p_185300_;
       }
 
    }
 
-   public void onPacketReceived(int protocolId, int packetId, SocketAddress remoteAddress, int bytes) {
+   public void onPacketReceived(ConnectionProtocol p_300094_, int p_185302_, SocketAddress p_185304_, int p_185303_) {
       if (PacketReceivedEvent.TYPE.isEnabled()) {
-         (new PacketReceivedEvent(protocolId, packetId, remoteAddress, bytes)).commit();
+         (new PacketReceivedEvent(p_300094_.id(), p_185302_, p_185304_, p_185303_)).commit();
       }
 
       if (NetworkSummaryEvent.TYPE.isEnabled()) {
-         this.getOrCreateSummaryRecorder(remoteAddress).addReceivedPacket(bytes);
+         this.networkStatFor(p_185304_).trackReceivedPacket(p_185303_);
       }
 
    }
 
-   public void onPacketSent(int protocolId, int packetId, SocketAddress remoteAddress, int bytes) {
+   public void onPacketSent(ConnectionProtocol p_299489_, int p_185323_, SocketAddress p_185325_, int p_185324_) {
       if (PacketSentEvent.TYPE.isEnabled()) {
-         (new PacketSentEvent(protocolId, packetId, remoteAddress, bytes)).commit();
+         (new PacketSentEvent(p_299489_.id(), p_185323_, p_185325_, p_185324_)).commit();
       }
 
       if (NetworkSummaryEvent.TYPE.isEnabled()) {
-         this.getOrCreateSummaryRecorder(remoteAddress).addSentPacket(bytes);
+         this.networkStatFor(p_185325_).trackSentPacket(p_185324_);
       }
 
    }
 
-   private NetworkSummaryEvent.Recorder getOrCreateSummaryRecorder(SocketAddress address) {
-      return (NetworkSummaryEvent.Recorder)this.summaryRecorderByAddress.computeIfAbsent(address.toString(), NetworkSummaryEvent.Recorder::new);
+   private NetworkSummaryEvent.SumAggregation networkStatFor(SocketAddress p_185320_) {
+      return this.networkTrafficByAddress.computeIfAbsent(p_185320_.toString(), NetworkSummaryEvent.SumAggregation::new);
    }
 
    @Nullable
-   public Finishable startWorldLoadProfiling() {
+   public ProfiledDuration onWorldLoadedStarted() {
       if (!WorldLoadFinishedEvent.TYPE.isEnabled()) {
          return null;
       } else {
-         WorldLoadFinishedEvent worldLoadFinishedEvent = new WorldLoadFinishedEvent();
-         worldLoadFinishedEvent.begin();
-         Objects.requireNonNull(worldLoadFinishedEvent);
-         return worldLoadFinishedEvent::commit;
+         WorldLoadFinishedEvent worldloadfinishedevent = new WorldLoadFinishedEvent();
+         worldloadfinishedevent.begin();
+         return worldloadfinishedevent::commit;
       }
    }
 
    @Nullable
-   public Finishable startChunkGenerationProfiling(ChunkPos chunkPos, RegistryKey world, String targetStatus) {
+   public ProfiledDuration onChunkGenerate(ChunkPos p_185313_, ResourceKey<Level> p_185314_, String p_185315_) {
       if (!ChunkGenerationEvent.TYPE.isEnabled()) {
          return null;
       } else {
-         ChunkGenerationEvent chunkGenerationEvent = new ChunkGenerationEvent(chunkPos, world, targetStatus);
-         chunkGenerationEvent.begin();
-         Objects.requireNonNull(chunkGenerationEvent);
-         return chunkGenerationEvent::commit;
+         ChunkGenerationEvent chunkgenerationevent = new ChunkGenerationEvent(p_185313_, p_185314_, p_185315_);
+         chunkgenerationevent.begin();
+         return chunkgenerationevent::commit;
       }
    }
 }

@@ -5,6 +5,8 @@ import com.google.common.hash.HashingOutputStream;
 import com.google.gson.JsonElement;
 import com.google.gson.stream.JsonWriter;
 import com.mojang.logging.LogUtils;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.JsonOps;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -14,57 +16,52 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.ToIntFunction;
-import net.minecraft.util.JsonHelper;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
+import net.minecraft.util.GsonHelper;
 import org.slf4j.Logger;
 
 public interface DataProvider {
-   ToIntFunction JSON_KEY_SORT_ORDER = (ToIntFunction)Util.make(new Object2IntOpenHashMap(), (map) -> {
-      map.put("type", 0);
-      map.put("parent", 1);
-      map.defaultReturnValue(2);
+   ToIntFunction<String> FIXED_ORDER_FIELDS = Util.make(new Object2IntOpenHashMap<>(), (p_236070_) -> {
+      p_236070_.put("type", 0);
+      p_236070_.put("parent", 1);
+      p_236070_.defaultReturnValue(2);
    });
-   Comparator JSON_KEY_SORTING_COMPARATOR = Comparator.comparingInt(JSON_KEY_SORT_ORDER).thenComparing((key) -> {
-      return key;
+   Comparator<String> KEY_COMPARATOR = Comparator.comparingInt(FIXED_ORDER_FIELDS).thenComparing((p_236077_) -> {
+      return p_236077_;
    });
    Logger LOGGER = LogUtils.getLogger();
 
-   CompletableFuture run(DataWriter writer);
+   CompletableFuture<?> run(CachedOutput p_236071_);
 
    String getName();
 
-   static CompletableFuture writeToPath(DataWriter writer, JsonElement json, Path path) {
+   static <T> CompletableFuture<?> saveStable(CachedOutput p_300299_, Codec<T> p_297797_, T p_300766_, Path p_299101_) {
+      JsonElement jsonelement = Util.getOrThrow(p_297797_.encodeStart(JsonOps.INSTANCE, p_300766_), IllegalStateException::new);
+      return saveStable(p_300299_, jsonelement, p_299101_);
+   }
+
+   static CompletableFuture<?> saveStable(CachedOutput p_253653_, JsonElement p_254542_, Path p_254467_) {
       return CompletableFuture.runAsync(() -> {
          try {
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            HashingOutputStream hashingOutputStream = new HashingOutputStream(Hashing.sha1(), byteArrayOutputStream);
-            JsonWriter jsonWriter = new JsonWriter(new OutputStreamWriter(hashingOutputStream, StandardCharsets.UTF_8));
+            ByteArrayOutputStream bytearrayoutputstream = new ByteArrayOutputStream();
+            HashingOutputStream hashingoutputstream = new HashingOutputStream(Hashing.sha1(), bytearrayoutputstream);
 
-            try {
-               jsonWriter.setSerializeNulls(false);
-               jsonWriter.setIndent("  ");
-               JsonHelper.writeSorted(jsonWriter, json, JSON_KEY_SORTING_COMPARATOR);
-            } catch (Throwable var9) {
-               try {
-                  jsonWriter.close();
-               } catch (Throwable var8) {
-                  var9.addSuppressed(var8);
-               }
-
-               throw var9;
+            try (JsonWriter jsonwriter = new JsonWriter(new OutputStreamWriter(hashingoutputstream, StandardCharsets.UTF_8))) {
+               jsonwriter.setSerializeNulls(false);
+               jsonwriter.setIndent("  ");
+               GsonHelper.writeValue(jsonwriter, p_254542_, KEY_COMPARATOR);
             }
 
-            jsonWriter.close();
-            writer.write(path, byteArrayOutputStream.toByteArray(), hashingOutputStream.hash());
-         } catch (IOException var10) {
-            LOGGER.error("Failed to save file to {}", path, var10);
+            p_253653_.writeIfNeeded(p_254467_, bytearrayoutputstream.toByteArray(), hashingoutputstream.hash());
+         } catch (IOException ioexception) {
+            LOGGER.error("Failed to save file to {}", p_254467_, ioexception);
          }
 
-      }, Util.getMainWorkerExecutor());
+      }, Util.backgroundExecutor());
    }
 
    @FunctionalInterface
-   public interface Factory {
-      DataProvider create(DataOutput output);
+   public interface Factory<T extends DataProvider> {
+      T create(PackOutput p_253851_);
    }
 }
