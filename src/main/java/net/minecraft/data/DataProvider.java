@@ -1,3 +1,6 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ */
 package net.minecraft.data;
 
 import com.google.common.hash.Hashing;
@@ -10,58 +13,60 @@ import com.mojang.serialization.JsonOps;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.ToIntFunction;
-import net.minecraft.Util;
-import net.minecraft.util.GsonHelper;
+import net.minecraft.data.DataOutput;
+import net.minecraft.data.DataWriter;
+import net.minecraft.registry.RegistryOps;
+import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.util.JsonHelper;
+import net.minecraft.util.Util;
 import org.slf4j.Logger;
 
 public interface DataProvider {
-   ToIntFunction<String> FIXED_ORDER_FIELDS = Util.make(new Object2IntOpenHashMap<>(), (p_236070_) -> {
-      p_236070_.put("type", 0);
-      p_236070_.put("parent", 1);
-      p_236070_.defaultReturnValue(2);
-   });
-   Comparator<String> KEY_COMPARATOR = Comparator.comparingInt(FIXED_ORDER_FIELDS).thenComparing((p_236077_) -> {
-      return p_236077_;
-   });
-   Logger LOGGER = LogUtils.getLogger();
+    public static final ToIntFunction<String> JSON_KEY_SORT_ORDER = Util.make(new Object2IntOpenHashMap(), map -> {
+        map.put("type", 0);
+        map.put("parent", 1);
+        map.defaultReturnValue(2);
+    });
+    public static final Comparator<String> JSON_KEY_SORTING_COMPARATOR = Comparator.comparingInt(JSON_KEY_SORT_ORDER).thenComparing(key -> key);
+    public static final Logger LOGGER = LogUtils.getLogger();
 
-   CompletableFuture<?> run(CachedOutput p_236071_);
+    public CompletableFuture<?> run(DataWriter var1);
 
-   String getName();
+    public String getName();
 
-   static <T> CompletableFuture<?> saveStable(CachedOutput p_300299_, Codec<T> p_297797_, T p_300766_, Path p_299101_) {
-      JsonElement jsonelement = Util.getOrThrow(p_297797_.encodeStart(JsonOps.INSTANCE, p_300766_), IllegalStateException::new);
-      return saveStable(p_300299_, jsonelement, p_299101_);
-   }
+    public static <T> CompletableFuture<?> writeCodecToPath(DataWriter writer, RegistryWrapper.WrapperLookup registryLookup, Codec<T> codec, T value, Path path) {
+        RegistryOps<JsonElement> lv = registryLookup.getOps(JsonOps.INSTANCE);
+        JsonElement jsonElement = codec.encodeStart(lv, (JsonElement)value).getOrThrow();
+        return DataProvider.writeToPath(writer, jsonElement, path);
+    }
 
-   static CompletableFuture<?> saveStable(CachedOutput p_253653_, JsonElement p_254542_, Path p_254467_) {
-      return CompletableFuture.runAsync(() -> {
-         try {
-            ByteArrayOutputStream bytearrayoutputstream = new ByteArrayOutputStream();
-            HashingOutputStream hashingoutputstream = new HashingOutputStream(Hashing.sha1(), bytearrayoutputstream);
-
-            try (JsonWriter jsonwriter = new JsonWriter(new OutputStreamWriter(hashingoutputstream, StandardCharsets.UTF_8))) {
-               jsonwriter.setSerializeNulls(false);
-               jsonwriter.setIndent("  ");
-               GsonHelper.writeValue(jsonwriter, p_254542_, KEY_COMPARATOR);
+    public static CompletableFuture<?> writeToPath(DataWriter writer, JsonElement json, Path path) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                HashingOutputStream hashingOutputStream = new HashingOutputStream(Hashing.sha1(), byteArrayOutputStream);
+                try (JsonWriter jsonWriter = new JsonWriter(new OutputStreamWriter((OutputStream)hashingOutputStream, StandardCharsets.UTF_8));){
+                    jsonWriter.setSerializeNulls(false);
+                    jsonWriter.setIndent("  ");
+                    JsonHelper.writeSorted(jsonWriter, json, JSON_KEY_SORTING_COMPARATOR);
+                }
+                writer.write(path, byteArrayOutputStream.toByteArray(), hashingOutputStream.hash());
+            } catch (IOException iOException) {
+                LOGGER.error("Failed to save file to {}", (Object)path, (Object)iOException);
             }
+        }, Util.getMainWorkerExecutor());
+    }
 
-            p_253653_.writeIfNeeded(p_254467_, bytearrayoutputstream.toByteArray(), hashingoutputstream.hash());
-         } catch (IOException ioexception) {
-            LOGGER.error("Failed to save file to {}", p_254467_, ioexception);
-         }
-
-      }, Util.backgroundExecutor());
-   }
-
-   @FunctionalInterface
-   public interface Factory<T extends DataProvider> {
-      T create(PackOutput p_253851_);
-   }
+    @FunctionalInterface
+    public static interface Factory<T extends DataProvider> {
+        public T create(DataOutput var1);
+    }
 }
+

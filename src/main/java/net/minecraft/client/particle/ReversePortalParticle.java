@@ -1,49 +1,72 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.PortalParticle;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
 
-@OnlyIn(Dist.CLIENT)
-public class ReversePortalParticle extends PortalParticle {
-   ReversePortalParticle(ClientLevel p_107590_, double p_107591_, double p_107592_, double p_107593_, double p_107594_, double p_107595_, double p_107596_) {
-      super(p_107590_, p_107591_, p_107592_, p_107593_, p_107594_, p_107595_, p_107596_);
-      this.quadSize *= 1.5F;
-      this.lifetime = (int)(Math.random() * 2.0D) + 60;
-   }
+@Environment(value=EnvType.CLIENT)
+public class ReversePortalParticle
+extends PortalParticle {
+    ReversePortalParticle(ClientWorld arg, double d, double e, double f, double g, double h, double i) {
+        super(arg, d, e, f, g, h, i);
+        this.scale *= 1.5f;
+        this.maxAge = (int)(Math.random() * 2.0) + 60;
+    }
 
-   public float getQuadSize(float p_107608_) {
-      float f = 1.0F - ((float)this.age + p_107608_) / ((float)this.lifetime * 1.5F);
-      return this.quadSize * f;
-   }
+    @Override
+    public float getSize(float tickDelta) {
+        float g = 1.0f - ((float)this.age + tickDelta) / ((float)this.maxAge * 1.5f);
+        return this.scale * g;
+    }
 
-   public void tick() {
-      this.xo = this.x;
-      this.yo = this.y;
-      this.zo = this.z;
-      if (this.age++ >= this.lifetime) {
-         this.remove();
-      } else {
-         float f = (float)this.age / (float)this.lifetime;
-         this.x += this.xd * (double)f;
-         this.y += this.yd * (double)f;
-         this.z += this.zd * (double)f;
-      }
-   }
+    @Override
+    public void tick() {
+        this.prevPosX = this.x;
+        this.prevPosY = this.y;
+        this.prevPosZ = this.z;
+        if (this.age++ >= this.maxAge) {
+            this.markDead();
+            return;
+        }
+        float f = (float)this.age / (float)this.maxAge;
+        this.x += this.velocityX * (double)f;
+        this.y += this.velocityY * (double)f;
+        this.z += this.velocityZ * (double)f;
+    }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class ReversePortalProvider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprite;
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      public ReversePortalProvider(SpriteSet p_107611_) {
-         this.sprite = p_107611_;
-      }
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Particle createParticle(SimpleParticleType p_107622_, ClientLevel p_107623_, double p_107624_, double p_107625_, double p_107626_, double p_107627_, double p_107628_, double p_107629_) {
-         ReversePortalParticle reverseportalparticle = new ReversePortalParticle(p_107623_, p_107624_, p_107625_, p_107626_, p_107627_, p_107628_, p_107629_);
-         reverseportalparticle.pickSprite(this.sprite);
-         return reverseportalparticle;
-      }
-   }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            ReversePortalParticle lv = new ReversePortalParticle(arg2, d, e, f, g, h, i);
+            lv.setSprite(this.spriteProvider);
+            return lv;
+        }
+
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

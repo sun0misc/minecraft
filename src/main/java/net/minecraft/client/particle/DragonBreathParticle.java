@@ -1,91 +1,112 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraft.util.Mth;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.ParticleTextureSheet;
+import net.minecraft.client.particle.SpriteBillboardParticle;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
+import net.minecraft.util.math.MathHelper;
 
-@OnlyIn(Dist.CLIENT)
-public class DragonBreathParticle extends TextureSheetParticle {
-   private static final int COLOR_MIN = 11993298;
-   private static final int COLOR_MAX = 14614777;
-   private static final float COLOR_MIN_RED = 0.7176471F;
-   private static final float COLOR_MIN_GREEN = 0.0F;
-   private static final float COLOR_MIN_BLUE = 0.8235294F;
-   private static final float COLOR_MAX_RED = 0.8745098F;
-   private static final float COLOR_MAX_GREEN = 0.0F;
-   private static final float COLOR_MAX_BLUE = 0.9764706F;
-   private boolean hasHitGround;
-   private final SpriteSet sprites;
+@Environment(value=EnvType.CLIENT)
+public class DragonBreathParticle
+extends SpriteBillboardParticle {
+    private static final int MIN_COLOR = 11993298;
+    private static final int MAX_COLOR = 14614777;
+    private static final float MIN_RED = 0.7176471f;
+    private static final float MIN_GREEN = 0.0f;
+    private static final float MIN_BLUE = 0.8235294f;
+    private static final float MAX_RED = 0.8745098f;
+    private static final float MAX_GREEN = 0.0f;
+    private static final float MAX_BLUE = 0.9764706f;
+    private boolean reachedGround;
+    private final SpriteProvider spriteProvider;
 
-   DragonBreathParticle(ClientLevel p_106005_, double p_106006_, double p_106007_, double p_106008_, double p_106009_, double p_106010_, double p_106011_, SpriteSet p_106012_) {
-      super(p_106005_, p_106006_, p_106007_, p_106008_);
-      this.friction = 0.96F;
-      this.xd = p_106009_;
-      this.yd = p_106010_;
-      this.zd = p_106011_;
-      this.rCol = Mth.nextFloat(this.random, 0.7176471F, 0.8745098F);
-      this.gCol = Mth.nextFloat(this.random, 0.0F, 0.0F);
-      this.bCol = Mth.nextFloat(this.random, 0.8235294F, 0.9764706F);
-      this.quadSize *= 0.75F;
-      this.lifetime = (int)(20.0D / ((double)this.random.nextFloat() * 0.8D + 0.2D));
-      this.hasHitGround = false;
-      this.hasPhysics = false;
-      this.sprites = p_106012_;
-      this.setSpriteFromAge(p_106012_);
-   }
+    DragonBreathParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, SpriteProvider spriteProvider) {
+        super(world, x, y, z);
+        this.velocityMultiplier = 0.96f;
+        this.velocityX = velocityX;
+        this.velocityY = velocityY;
+        this.velocityZ = velocityZ;
+        this.red = MathHelper.nextFloat(this.random, 0.7176471f, 0.8745098f);
+        this.green = MathHelper.nextFloat(this.random, 0.0f, 0.0f);
+        this.blue = MathHelper.nextFloat(this.random, 0.8235294f, 0.9764706f);
+        this.scale *= 0.75f;
+        this.maxAge = (int)(20.0 / ((double)this.random.nextFloat() * 0.8 + 0.2));
+        this.reachedGround = false;
+        this.collidesWithWorld = false;
+        this.spriteProvider = spriteProvider;
+        this.setSpriteForAge(spriteProvider);
+    }
 
-   public void tick() {
-      this.xo = this.x;
-      this.yo = this.y;
-      this.zo = this.z;
-      if (this.age++ >= this.lifetime) {
-         this.remove();
-      } else {
-         this.setSpriteFromAge(this.sprites);
-         if (this.onGround) {
-            this.yd = 0.0D;
-            this.hasHitGround = true;
-         }
+    @Override
+    public void tick() {
+        this.prevPosX = this.x;
+        this.prevPosY = this.y;
+        this.prevPosZ = this.z;
+        if (this.age++ >= this.maxAge) {
+            this.markDead();
+            return;
+        }
+        this.setSpriteForAge(this.spriteProvider);
+        if (this.onGround) {
+            this.velocityY = 0.0;
+            this.reachedGround = true;
+        }
+        if (this.reachedGround) {
+            this.velocityY += 0.002;
+        }
+        this.move(this.velocityX, this.velocityY, this.velocityZ);
+        if (this.y == this.prevPosY) {
+            this.velocityX *= 1.1;
+            this.velocityZ *= 1.1;
+        }
+        this.velocityX *= (double)this.velocityMultiplier;
+        this.velocityZ *= (double)this.velocityMultiplier;
+        if (this.reachedGround) {
+            this.velocityY *= (double)this.velocityMultiplier;
+        }
+    }
 
-         if (this.hasHitGround) {
-            this.yd += 0.002D;
-         }
+    @Override
+    public ParticleTextureSheet getType() {
+        return ParticleTextureSheet.PARTICLE_SHEET_OPAQUE;
+    }
 
-         this.move(this.xd, this.yd, this.zd);
-         if (this.y == this.yo) {
-            this.xd *= 1.1D;
-            this.zd *= 1.1D;
-         }
+    @Override
+    public float getSize(float tickDelta) {
+        return this.scale * MathHelper.clamp(((float)this.age + tickDelta) / (float)this.maxAge * 32.0f, 0.0f, 1.0f);
+    }
 
-         this.xd *= (double)this.friction;
-         this.zd *= (double)this.friction;
-         if (this.hasHitGround) {
-            this.yd *= (double)this.friction;
-         }
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      }
-   }
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.PARTICLE_SHEET_OPAQUE;
-   }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            return new DragonBreathParticle(arg2, d, e, f, g, h, i, this.spriteProvider);
+        }
 
-   public float getQuadSize(float p_106026_) {
-      return this.quadSize * Mth.clamp(((float)this.age + p_106026_) / (float)this.lifetime * 32.0F, 0.0F, 1.0F);
-   }
-
-   @OnlyIn(Dist.CLIENT)
-   public static class Provider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprites;
-
-      public Provider(SpriteSet p_106029_) {
-         this.sprites = p_106029_;
-      }
-
-      public Particle createParticle(SimpleParticleType p_106040_, ClientLevel p_106041_, double p_106042_, double p_106043_, double p_106044_, double p_106045_, double p_106046_, double p_106047_) {
-         return new DragonBreathParticle(p_106041_, p_106042_, p_106043_, p_106044_, p_106045_, p_106046_, p_106047_, this.sprites);
-      }
-   }
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

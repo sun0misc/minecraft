@@ -1,48 +1,50 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ */
 package net.minecraft.util;
 
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
 public class CubicSampler {
-   private static final int GAUSSIAN_SAMPLE_RADIUS = 2;
-   private static final int GAUSSIAN_SAMPLE_BREADTH = 6;
-   private static final double[] GAUSSIAN_SAMPLE_KERNEL = new double[]{0.0D, 1.0D, 4.0D, 6.0D, 4.0D, 1.0D, 0.0D};
+    private static final int FIRST_SEGMENT_OFFSET = 2;
+    private static final int NUM_SEGMENTS = 6;
+    private static final double[] DENSITY_CURVE = new double[]{0.0, 1.0, 4.0, 6.0, 4.0, 1.0, 0.0};
 
-   private CubicSampler() {
-   }
+    private CubicSampler() {
+    }
 
-   public static Vec3 gaussianSampleVec3(Vec3 p_130039_, CubicSampler.Vec3Fetcher p_130040_) {
-      int i = Mth.floor(p_130039_.x());
-      int j = Mth.floor(p_130039_.y());
-      int k = Mth.floor(p_130039_.z());
-      double d0 = p_130039_.x() - (double)i;
-      double d1 = p_130039_.y() - (double)j;
-      double d2 = p_130039_.z() - (double)k;
-      double d3 = 0.0D;
-      Vec3 vec3 = Vec3.ZERO;
-
-      for(int l = 0; l < 6; ++l) {
-         double d4 = Mth.lerp(d0, GAUSSIAN_SAMPLE_KERNEL[l + 1], GAUSSIAN_SAMPLE_KERNEL[l]);
-         int i1 = i - 2 + l;
-
-         for(int j1 = 0; j1 < 6; ++j1) {
-            double d5 = Mth.lerp(d1, GAUSSIAN_SAMPLE_KERNEL[j1 + 1], GAUSSIAN_SAMPLE_KERNEL[j1]);
-            int k1 = j - 2 + j1;
-
-            for(int l1 = 0; l1 < 6; ++l1) {
-               double d6 = Mth.lerp(d2, GAUSSIAN_SAMPLE_KERNEL[l1 + 1], GAUSSIAN_SAMPLE_KERNEL[l1]);
-               int i2 = k - 2 + l1;
-               double d7 = d4 * d5 * d6;
-               d3 += d7;
-               vec3 = vec3.add(p_130040_.fetch(i1, k1, i2).scale(d7));
+    public static Vec3d sampleColor(Vec3d pos, RgbFetcher rgbFetcher) {
+        int i = MathHelper.floor(pos.getX());
+        int j = MathHelper.floor(pos.getY());
+        int k = MathHelper.floor(pos.getZ());
+        double d = pos.getX() - (double)i;
+        double e = pos.getY() - (double)j;
+        double f = pos.getZ() - (double)k;
+        double g = 0.0;
+        Vec3d lv = Vec3d.ZERO;
+        for (int l = 0; l < 6; ++l) {
+            double h = MathHelper.lerp(d, DENSITY_CURVE[l + 1], DENSITY_CURVE[l]);
+            int m = i - 2 + l;
+            for (int n = 0; n < 6; ++n) {
+                double o = MathHelper.lerp(e, DENSITY_CURVE[n + 1], DENSITY_CURVE[n]);
+                int p = j - 2 + n;
+                for (int q = 0; q < 6; ++q) {
+                    double r = MathHelper.lerp(f, DENSITY_CURVE[q + 1], DENSITY_CURVE[q]);
+                    int s = k - 2 + q;
+                    double t = h * o * r;
+                    g += t;
+                    lv = lv.add(rgbFetcher.fetch(m, p, s).multiply(t));
+                }
             }
-         }
-      }
+        }
+        lv = lv.multiply(1.0 / g);
+        return lv;
+    }
 
-      return vec3.scale(1.0D / d3);
-   }
-
-   @FunctionalInterface
-   public interface Vec3Fetcher {
-      Vec3 fetch(int p_130042_, int p_130043_, int p_130044_);
-   }
+    @FunctionalInterface
+    public static interface RgbFetcher {
+        public Vec3d fetch(int var1, int var2, int var3);
+    }
 }
+

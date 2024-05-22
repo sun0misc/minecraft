@@ -1,3 +1,6 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ */
 package net.minecraft.util.profiling.jfr.event;
 
 import java.net.SocketAddress;
@@ -9,38 +12,45 @@ import jdk.jfr.Label;
 import jdk.jfr.Name;
 import jdk.jfr.StackTrace;
 
-@Category({"Minecraft", "Network"})
-@StackTrace(false)
-@Enabled(false)
-public abstract class PacketEvent extends Event {
-   @Name("protocolId")
-   @Label("Protocol Id")
-   public final String protocolId;
-   @Name("packetId")
-   @Label("Packet Id")
-   public final int packetId;
-   @Name("remoteAddress")
-   @Label("Remote Address")
-   public final String remoteAddress;
-   @Name("bytes")
-   @Label("Bytes")
-   @DataAmount
-   public final int bytes;
+@Category(value={"Minecraft", "Network"})
+@StackTrace(value=false)
+@Enabled(value=false)
+public abstract class PacketEvent
+extends Event {
+    @Name(value="protocolId")
+    @Label(value="Protocol Id")
+    public final String protocolId;
+    @Name(value="packetDirection")
+    @Label(value="Packet Direction")
+    public final String packetDirection;
+    @Name(value="packetId")
+    @Label(value="Packet Id")
+    public final String packetId;
+    @Name(value="remoteAddress")
+    @Label(value="Remote Address")
+    public final String remoteAddress;
+    @Name(value="bytes")
+    @Label(value="Bytes")
+    @DataAmount
+    public final int bytes;
 
-   public PacketEvent(String p_299040_, int p_185419_, SocketAddress p_185421_, int p_185420_) {
-      this.protocolId = p_299040_;
-      this.packetId = p_185419_;
-      this.remoteAddress = p_185421_.toString();
-      this.bytes = p_185420_;
-   }
+    public PacketEvent(String protocolId, String packetDirection, String packetId, SocketAddress remoteAddress, int bytes) {
+        this.protocolId = protocolId;
+        this.packetDirection = packetDirection;
+        this.packetId = packetId;
+        this.remoteAddress = remoteAddress.toString();
+        this.bytes = bytes;
+    }
 
-   public static final class Fields {
-      public static final String REMOTE_ADDRESS = "remoteAddress";
-      public static final String PROTOCOL_ID = "protocolId";
-      public static final String PACKET_ID = "packetId";
-      public static final String BYTES = "bytes";
+    public static final class Names {
+        public static final String REMOTE_ADDRESS = "remoteAddress";
+        public static final String PROTOCOL_ID = "protocolId";
+        public static final String PACKET_DIRECTION = "packetDirection";
+        public static final String PACKET_ID = "packetId";
+        public static final String BYTES = "bytes";
 
-      private Fields() {
-      }
-   }
+        private Names() {
+        }
+    }
 }
+

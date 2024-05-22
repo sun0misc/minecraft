@@ -1,25 +1,38 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.Camera;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleTextureSheet;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.world.ClientWorld;
 
-@OnlyIn(Dist.CLIENT)
-public class NoRenderParticle extends Particle {
-   protected NoRenderParticle(ClientLevel p_107149_, double p_107150_, double p_107151_, double p_107152_) {
-      super(p_107149_, p_107150_, p_107151_, p_107152_);
-   }
+@Environment(value=EnvType.CLIENT)
+public class NoRenderParticle
+extends Particle {
+    protected NoRenderParticle(ClientWorld arg, double d, double e, double f) {
+        super(arg, d, e, f);
+    }
 
-   protected NoRenderParticle(ClientLevel p_107154_, double p_107155_, double p_107156_, double p_107157_, double p_107158_, double p_107159_, double p_107160_) {
-      super(p_107154_, p_107155_, p_107156_, p_107157_, p_107158_, p_107159_, p_107160_);
-   }
+    protected NoRenderParticle(ClientWorld arg, double d, double e, double f, double g, double h, double i) {
+        super(arg, d, e, f, g, h, i);
+    }
 
-   public final void render(VertexConsumer p_107162_, Camera p_107163_, float p_107164_) {
-   }
+    @Override
+    public final void buildGeometry(VertexConsumer vertexConsumer, Camera camera, float tickDelta) {
+    }
 
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.NO_RENDER;
-   }
+    @Override
+    public ParticleTextureSheet getType() {
+        return ParticleTextureSheet.NO_RENDER;
+    }
 }
+

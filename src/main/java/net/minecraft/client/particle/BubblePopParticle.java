@@ -1,52 +1,76 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.ParticleTextureSheet;
+import net.minecraft.client.particle.SpriteBillboardParticle;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
 
-@OnlyIn(Dist.CLIENT)
-public class BubblePopParticle extends TextureSheetParticle {
-   private final SpriteSet sprites;
+@Environment(value=EnvType.CLIENT)
+public class BubblePopParticle
+extends SpriteBillboardParticle {
+    private final SpriteProvider spriteProvider;
 
-   BubblePopParticle(ClientLevel p_105814_, double p_105815_, double p_105816_, double p_105817_, double p_105818_, double p_105819_, double p_105820_, SpriteSet p_105821_) {
-      super(p_105814_, p_105815_, p_105816_, p_105817_);
-      this.sprites = p_105821_;
-      this.lifetime = 4;
-      this.gravity = 0.008F;
-      this.xd = p_105818_;
-      this.yd = p_105819_;
-      this.zd = p_105820_;
-      this.setSpriteFromAge(p_105821_);
-   }
+    BubblePopParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, SpriteProvider spriteProvider) {
+        super(world, x, y, z);
+        this.spriteProvider = spriteProvider;
+        this.maxAge = 4;
+        this.gravityStrength = 0.008f;
+        this.velocityX = velocityX;
+        this.velocityY = velocityY;
+        this.velocityZ = velocityZ;
+        this.setSpriteForAge(spriteProvider);
+    }
 
-   public void tick() {
-      this.xo = this.x;
-      this.yo = this.y;
-      this.zo = this.z;
-      if (this.age++ >= this.lifetime) {
-         this.remove();
-      } else {
-         this.yd -= (double)this.gravity;
-         this.move(this.xd, this.yd, this.zd);
-         this.setSpriteFromAge(this.sprites);
-      }
-   }
+    @Override
+    public void tick() {
+        this.prevPosX = this.x;
+        this.prevPosY = this.y;
+        this.prevPosZ = this.z;
+        if (this.age++ >= this.maxAge) {
+            this.markDead();
+            return;
+        }
+        this.velocityY -= (double)this.gravityStrength;
+        this.move(this.velocityX, this.velocityY, this.velocityZ);
+        this.setSpriteForAge(this.spriteProvider);
+    }
 
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.PARTICLE_SHEET_OPAQUE;
-   }
+    @Override
+    public ParticleTextureSheet getType() {
+        return ParticleTextureSheet.PARTICLE_SHEET_OPAQUE;
+    }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class Provider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprites;
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      public Provider(SpriteSet p_105836_) {
-         this.sprites = p_105836_;
-      }
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Particle createParticle(SimpleParticleType p_105847_, ClientLevel p_105848_, double p_105849_, double p_105850_, double p_105851_, double p_105852_, double p_105853_, double p_105854_) {
-         return new BubblePopParticle(p_105848_, p_105849_, p_105850_, p_105851_, p_105852_, p_105853_, p_105854_, this.sprites);
-      }
-   }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            return new BubblePopParticle(arg2, d, e, f, g, h, i, this.spriteProvider);
+        }
+
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

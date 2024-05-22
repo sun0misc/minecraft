@@ -1,219 +1,189 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  org.jetbrains.annotations.Nullable
+ */
 package net.minecraft;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.mojang.datafixers.DSL;
 import io.netty.util.ResourceLeakDetector;
-import io.netty.util.ResourceLeakDetector.Level;
 import java.time.Duration;
-import java.util.Set;
-import javax.annotation.Nullable;
-import net.minecraft.commands.BrigadierExceptions;
-import net.minecraft.util.datafix.DataFixTypes;
-import net.minecraft.world.level.ChunkPos;
+import net.minecraft.GameVersion;
+import net.minecraft.MinecraftVersion;
+import net.minecraft.command.TranslatableBuiltInExceptions;
+import net.minecraft.util.math.ChunkPos;
+import org.jetbrains.annotations.Nullable;
 
 public class SharedConstants {
-   /** @deprecated */
-   @Deprecated
-   public static final boolean SNAPSHOT = false;
-   /** @deprecated */
-   @Deprecated
-   public static final int WORLD_VERSION = 3578;
-   /** @deprecated */
-   @Deprecated
-   public static final String SERIES = "main";
-   /** @deprecated */
-   @Deprecated
-   public static final String VERSION_STRING = "1.20.2";
-   /** @deprecated */
-   @Deprecated
-   public static final int RELEASE_NETWORK_PROTOCOL_VERSION = 764;
-   /** @deprecated */
-   @Deprecated
-   public static final int SNAPSHOT_NETWORK_PROTOCOL_VERSION = 153;
-   public static final int SNBT_NAG_VERSION = 3563;
-   private static final int SNAPSHOT_PROTOCOL_BIT = 30;
-   public static final boolean THROW_ON_TASK_FAILURE = false;
-   /** @deprecated */
-   @Deprecated
-   public static final int RESOURCE_PACK_FORMAT = 18;
-   /** @deprecated */
-   @Deprecated
-   public static final int DATA_PACK_FORMAT = 18;
-   /** @deprecated */
-   @Deprecated
-   public static final int LANGUAGE_FORMAT = 1;
-   public static final int REPORT_FORMAT_VERSION = 1;
-   public static final String DATA_VERSION_TAG = "DataVersion";
-   public static final boolean USE_NEW_RENDERSYSTEM = false;
-   public static final boolean MULTITHREADED_RENDERING = false;
-   public static final boolean FIX_TNT_DUPE = false;
-   public static final boolean FIX_SAND_DUPE = false;
-   public static final boolean USE_DEBUG_FEATURES = false;
-   public static final boolean DEBUG_OPEN_INCOMPATIBLE_WORLDS = false;
-   public static final boolean DEBUG_ALLOW_LOW_SIM_DISTANCE = false;
-   public static final boolean DEBUG_HOTKEYS = false;
-   public static final boolean DEBUG_UI_NARRATION = false;
-   public static final boolean DEBUG_RENDER = false;
-   public static final boolean DEBUG_PATHFINDING = false;
-   public static final boolean DEBUG_WATER = false;
-   public static final boolean DEBUG_HEIGHTMAP = false;
-   public static final boolean DEBUG_COLLISION = false;
-   public static final boolean DEBUG_SUPPORT_BLOCKS = false;
-   public static final boolean DEBUG_SHAPES = false;
-   public static final boolean DEBUG_NEIGHBORSUPDATE = false;
-   public static final boolean DEBUG_STRUCTURES = false;
-   public static final boolean DEBUG_LIGHT = false;
-   public static final boolean DEBUG_SKY_LIGHT_SECTIONS = false;
-   public static final boolean DEBUG_WORLDGENATTEMPT = false;
-   public static final boolean DEBUG_SOLID_FACE = false;
-   public static final boolean DEBUG_CHUNKS = false;
-   public static final boolean DEBUG_GAME_EVENT_LISTENERS = false;
-   public static final boolean DEBUG_DUMP_TEXTURE_ATLAS = false;
-   public static final boolean DEBUG_DUMP_INTERPOLATED_TEXTURE_FRAMES = false;
-   public static final boolean DEBUG_STRUCTURE_EDIT_MODE = false;
-   public static final boolean DEBUG_SAVE_STRUCTURES_AS_SNBT = false;
-   public static final boolean DEBUG_SYNCHRONOUS_GL_LOGS = false;
-   public static final boolean DEBUG_VERBOSE_SERVER_EVENTS = false;
-   public static final boolean DEBUG_NAMED_RUNNABLES = false;
-   public static final boolean DEBUG_GOAL_SELECTOR = false;
-   public static final boolean DEBUG_VILLAGE_SECTIONS = false;
-   public static final boolean DEBUG_BRAIN = false;
-   public static final boolean DEBUG_BEES = false;
-   public static final boolean DEBUG_RAIDS = false;
-   public static final boolean DEBUG_BLOCK_BREAK = false;
-   public static final boolean DEBUG_RESOURCE_LOAD_TIMES = false;
-   public static final boolean DEBUG_MONITOR_TICK_TIMES = false;
-   public static final boolean DEBUG_KEEP_JIGSAW_BLOCKS_DURING_STRUCTURE_GEN = false;
-   public static final boolean DEBUG_DONT_SAVE_WORLD = false;
-   public static final boolean DEBUG_LARGE_DRIPSTONE = false;
-   public static final boolean DEBUG_PACKET_SERIALIZATION = false;
-   public static final boolean DEBUG_CARVERS = false;
-   public static final boolean DEBUG_ORE_VEINS = false;
-   public static final boolean DEBUG_SCULK_CATALYST = false;
-   public static final boolean DEBUG_BYPASS_REALMS_VERSION_CHECK = false;
-   public static final boolean DEBUG_SOCIAL_INTERACTIONS = false;
-   public static final boolean DEBUG_VALIDATE_RESOURCE_PATH_CASE = false;
-   public static final boolean DEBUG_UNLOCK_ALL_TRADES = false;
-   public static final boolean DEBUG_IGNORE_LOCAL_MOB_CAP = false;
-   public static final boolean DEBUG_SMALL_SPAWN = false;
-   public static final boolean DEBUG_DISABLE_LIQUID_SPREADING = false;
-   public static final boolean DEBUG_AQUIFERS = false;
-   public static final boolean DEBUG_JFR_PROFILING_ENABLE_LEVEL_LOADING = false;
-   public static boolean debugGenerateSquareTerrainWithoutNoise = false;
-   public static boolean debugGenerateStripedTerrainWithoutNoise = false;
-   public static final boolean DEBUG_ONLY_GENERATE_HALF_THE_WORLD = false;
-   public static final boolean DEBUG_DISABLE_FLUID_GENERATION = false;
-   public static final boolean DEBUG_DISABLE_AQUIFERS = false;
-   public static final boolean DEBUG_DISABLE_SURFACE = false;
-   public static final boolean DEBUG_DISABLE_CARVERS = false;
-   public static final boolean DEBUG_DISABLE_STRUCTURES = false;
-   public static final boolean DEBUG_DISABLE_FEATURES = false;
-   public static final boolean DEBUG_DISABLE_ORE_VEINS = false;
-   public static final boolean DEBUG_DISABLE_BLENDING = false;
-   public static final boolean DEBUG_DISABLE_BELOW_ZERO_RETROGENERATION = false;
-   public static final int DEFAULT_MINECRAFT_PORT = 25565;
-   public static final boolean INGAME_DEBUG_OUTPUT = false;
-   public static final boolean DEBUG_SUBTITLES = false;
-   public static final int FAKE_MS_LATENCY = 0;
-   public static final int FAKE_MS_JITTER = 0;
-   public static final ResourceLeakDetector.Level NETTY_LEAK_DETECTION = Level.DISABLED;
-   public static final boolean COMMAND_STACK_TRACES = false;
-   public static final boolean DEBUG_WORLD_RECREATE = false;
-   public static final boolean DEBUG_SHOW_SERVER_DEBUG_VALUES = false;
-   public static final boolean DEBUG_STORE_CHUNK_STACKTRACES = false;
-   public static final boolean DEBUG_FEATURE_COUNT = false;
-   public static final boolean DEBUG_RESOURCE_GENERATION_OVERRIDE = false;
-   public static final boolean DEBUG_FORCE_TELEMETRY = false;
-   public static final boolean DEBUG_DONT_SEND_TELEMETRY_TO_BACKEND = false;
-   public static final long MAXIMUM_TICK_TIME_NANOS = Duration.ofMillis(300L).toNanos();
-   public static final boolean USE_WORKFLOWS_HOOKS = false;
-   public static boolean CHECK_DATA_FIXER_SCHEMA = true;
-   public static boolean IS_RUNNING_IN_IDE;
-   public static Set<DSL.TypeReference> DATA_FIX_TYPES_TO_OPTIMIZE = Set.of();
-   public static final int WORLD_RESOLUTION = 16;
-   public static final int MAX_CHAT_LENGTH = 256;
-   public static final int MAX_COMMAND_LENGTH = 32500;
-   public static final int MAX_CHAINED_NEIGHBOR_UPDATES = 1000000;
-   public static final int MAX_RENDER_DISTANCE = 32;
-   public static final char[] ILLEGAL_FILE_CHARACTERS = new char[]{'/', '\n', '\r', '\t', '\u0000', '\f', '`', '?', '*', '\\', '<', '>', '|', '"', ':'};
-   public static final int TICKS_PER_SECOND = 20;
-   public static final int MILLIS_PER_TICK = 50;
-   public static final int TICKS_PER_MINUTE = 1200;
-   public static final int TICKS_PER_GAME_DAY = 24000;
-   public static final float AVERAGE_GAME_TICKS_PER_RANDOM_TICK_PER_BLOCK = 1365.3334F;
-   public static final float AVERAGE_RANDOM_TICKS_PER_BLOCK_PER_MINUTE = 0.87890625F;
-   public static final float AVERAGE_RANDOM_TICKS_PER_BLOCK_PER_GAME_DAY = 17.578125F;
-   public static final int WORLD_ICON_SIZE = 64;
-   @Nullable
-   private static WorldVersion CURRENT_VERSION;
+    @Deprecated
+    public static final boolean IS_DEVELOPMENT_VERSION = true;
+    @Deprecated
+    public static final int WORLD_VERSION = 3947;
+    @Deprecated
+    public static final String CURRENT_SERIES = "main";
+    @Deprecated
+    public static final String VERSION_NAME = "24w21b";
+    @Deprecated
+    public static final int RELEASE_TARGET_PROTOCOL_VERSION = 767;
+    @Deprecated
+    public static final int field_29736 = 198;
+    public static final int SNBT_TOO_OLD_THRESHOLD = 3937;
+    private static final int field_29708 = 30;
+    public static final boolean CRASH_ON_UNCAUGHT_THREAD_EXCEPTION = true;
+    @Deprecated
+    public static final int RESOURCE_PACK_VERSION = 34;
+    @Deprecated
+    public static final int DATA_PACK_VERSION = 45;
+    @Deprecated
+    public static final int field_39963 = 1;
+    public static final int field_39964 = 1;
+    public static final String DATA_VERSION_KEY = "DataVersion";
+    public static final boolean field_29745 = false;
+    public static final boolean field_33851 = false;
+    public static final boolean field_51975 = false;
+    public static final boolean field_29747 = false;
+    public static final boolean field_35006 = false;
+    public static final boolean field_35563 = false;
+    public static final boolean field_29748 = false;
+    public static final boolean field_33753 = false;
+    public static final boolean field_29749 = false;
+    public static final boolean field_29750 = false;
+    public static final boolean field_29751 = false;
+    public static final boolean field_29752 = false;
+    public static final boolean field_29753 = false;
+    public static final boolean field_44779 = false;
+    public static final boolean field_29754 = false;
+    public static final boolean field_29755 = false;
+    public static final boolean field_29756 = false;
+    public static final boolean field_29676 = false;
+    public static final boolean field_44582 = false;
+    public static final boolean field_29677 = false;
+    public static final boolean field_29678 = false;
+    public static final boolean field_29679 = false;
+    public static final boolean field_29680 = false;
+    public static final boolean field_29681 = false;
+    public static final boolean field_29682 = false;
+    public static final boolean field_29683 = false;
+    public static final boolean field_29684 = false;
+    public static final boolean field_29685 = false;
+    public static final boolean field_29686 = false;
+    public static final boolean field_29687 = false;
+    public static final boolean field_29688 = false;
+    public static final boolean field_29689 = false;
+    public static final boolean field_29690 = false;
+    public static final boolean field_29691 = false;
+    public static final boolean field_29692 = false;
+    public static final boolean field_29693 = false;
+    public static final boolean field_29694 = false;
+    public static final boolean field_29695 = false;
+    public static final boolean field_29696 = false;
+    public static final boolean field_29697 = false;
+    public static final boolean field_29698 = false;
+    public static final boolean field_29700 = false;
+    public static final boolean field_33554 = false;
+    public static final boolean field_37273 = false;
+    public static final boolean field_39090 = false;
+    public static final boolean field_39460 = false;
+    public static final boolean field_39962 = false;
+    public static final boolean field_46154 = false;
+    public static final boolean field_47176 = false;
+    public static final boolean field_47177 = false;
+    public static final boolean field_48778 = false;
+    public static final boolean field_47178 = false;
+    public static final boolean field_34368 = false;
+    public static final boolean field_29710 = false;
+    public static final boolean field_34369 = false;
+    public static final boolean field_34370 = false;
+    public static boolean DEBUG_BIOME_SOURCE = false;
+    public static boolean DEBUG_NOISE = false;
+    public static final boolean field_29711 = false;
+    public static final boolean field_29712 = false;
+    public static final boolean field_29713 = false;
+    public static final boolean field_29715 = false;
+    public static final boolean field_29716 = false;
+    public static final boolean field_29717 = false;
+    public static final boolean field_29718 = false;
+    public static final boolean field_33555 = false;
+    public static final boolean field_35438 = false;
+    public static final boolean field_35439 = false;
+    public static final int DEFAULT_PORT = 25565;
+    public static final boolean field_29720 = false;
+    public static final boolean field_29721 = false;
+    public static final int field_29722 = 0;
+    public static final int field_29723 = 0;
+    public static final ResourceLeakDetector.Level RESOURCE_LEAK_DETECTOR_DISABLED = ResourceLeakDetector.Level.DISABLED;
+    public static final boolean field_29724 = false;
+    public static final boolean field_29725 = false;
+    public static final boolean field_29726 = false;
+    public static final boolean field_35652 = false;
+    public static final boolean field_39961 = false;
+    public static final boolean field_41533 = false;
+    public static final boolean field_44780 = false;
+    public static final long field_22251 = Duration.ofMillis(300L).toNanos();
+    public static final float field_49016 = 3600000.0f;
+    public static final boolean field_44583 = false;
+    public static final boolean field_49773 = false;
+    public static boolean useChoiceTypeRegistrations = true;
+    public static boolean isDevelopment;
+    public static final int CHUNK_WIDTH = 16;
+    public static final int DEFAULT_WORLD_HEIGHT = 256;
+    public static final int COMMAND_MAX_LENGTH = 32500;
+    public static final int EXPANDED_MACRO_COMMAND_MAX_LENGTH = 2000000;
+    public static final int field_49170 = 16;
+    public static final int field_38052 = 1000000;
+    public static final int field_39898 = 32;
+    public static final char[] INVALID_CHARS_LEVEL_NAME;
+    public static final int TICKS_PER_SECOND = 20;
+    public static final int field_44973 = 50;
+    public static final int TICKS_PER_MINUTE = 1200;
+    public static final int TICKS_PER_IN_GAME_DAY = 24000;
+    public static final float field_29705 = 1365.3334f;
+    public static final float field_29706 = 0.87890625f;
+    public static final float field_29707 = 17.578125f;
+    public static final int field_44922 = 64;
+    @Nullable
+    private static GameVersion gameVersion;
 
-   public static boolean isAllowedChatCharacter(char p_136189_) {
-      return p_136189_ != 167 && p_136189_ >= ' ' && p_136189_ != 127;
-   }
+    public static void setGameVersion(GameVersion gameVersion) {
+        if (SharedConstants.gameVersion == null) {
+            SharedConstants.gameVersion = gameVersion;
+        } else if (gameVersion != SharedConstants.gameVersion) {
+            throw new IllegalStateException("Cannot override the current game version!");
+        }
+    }
 
-   public static String filterText(String p_136191_) {
-      return filterText(p_136191_, false);
-   }
+    public static void createGameVersion() {
+        if (gameVersion == null) {
+            gameVersion = MinecraftVersion.create();
+        }
+    }
 
-   public static String filterText(String p_239658_, boolean p_239659_) {
-      StringBuilder stringbuilder = new StringBuilder();
+    public static GameVersion getGameVersion() {
+        if (gameVersion == null) {
+            throw new IllegalStateException("Game version not set");
+        }
+        return gameVersion;
+    }
 
-      for(char c0 : p_239658_.toCharArray()) {
-         if (isAllowedChatCharacter(c0)) {
-            stringbuilder.append(c0);
-         } else if (p_239659_ && c0 == '\n') {
-            stringbuilder.append(c0);
-         }
-      }
+    public static int getProtocolVersion() {
+        return 1073742022;
+    }
 
-      return stringbuilder.toString();
-   }
+    public static boolean isOutsideGenerationArea(ChunkPos pos) {
+        int i = pos.getStartX();
+        int j = pos.getStartZ();
+        if (DEBUG_BIOME_SOURCE) {
+            return i > 8192 || i < 0 || j > 1024 || j < 0;
+        }
+        return false;
+    }
 
-   public static void setVersion(WorldVersion p_183706_) {
-      if (CURRENT_VERSION == null) {
-         CURRENT_VERSION = p_183706_;
-      } else if (p_183706_ != CURRENT_VERSION) {
-         throw new IllegalStateException("Cannot override the current game version!");
-      }
-
-   }
-
-   public static void tryDetectVersion() {
-      if (CURRENT_VERSION == null) {
-         CURRENT_VERSION = DetectedVersion.tryDetectVersion();
-      }
-
-   }
-
-   public static WorldVersion getCurrentVersion() {
-      if (CURRENT_VERSION == null) {
-         throw new IllegalStateException("Game version not set");
-      } else {
-         return CURRENT_VERSION;
-      }
-   }
-
-   public static int getProtocolVersion() {
-      return 764;
-   }
-
-   public static boolean debugVoidTerrain(ChunkPos p_183708_) {
-      int i = p_183708_.getMinBlockX();
-      int j = p_183708_.getMinBlockZ();
-      if (!debugGenerateSquareTerrainWithoutNoise) {
-         return false;
-      } else {
-         return i > 8192 || i < 0 || j > 1024 || j < 0;
-      }
-   }
-
-   public static void enableDataFixerOptimizations() {
-      DATA_FIX_TYPES_TO_OPTIMIZE = DataFixTypes.TYPES_FOR_LEVEL_LIST;
-   }
-
-   static {
-      ResourceLeakDetector.setLevel(NETTY_LEAK_DETECTION);
-      CommandSyntaxException.ENABLE_COMMAND_STACK_TRACES = false;
-      CommandSyntaxException.BUILT_IN_EXCEPTIONS = new BrigadierExceptions();
-   }
+    static {
+        INVALID_CHARS_LEVEL_NAME = new char[]{'/', '\n', '\r', '\t', '\u0000', '\f', '`', '?', '*', '\\', '<', '>', '|', '\"', ':'};
+        ResourceLeakDetector.setLevel(RESOURCE_LEAK_DETECTOR_DISABLED);
+        CommandSyntaxException.ENABLE_COMMAND_STACK_TRACES = false;
+        CommandSyntaxException.BUILT_IN_EXCEPTIONS = new TranslatableBuiltInExceptions();
+    }
 }
+

@@ -1,16 +1,21 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ */
 package net.minecraft.world.level.storage;
 
-import net.minecraft.network.chat.Component;
+import net.minecraft.text.Text;
 
-public class LevelStorageException extends RuntimeException {
-   private final Component messageComponent;
+public class LevelStorageException
+extends RuntimeException {
+    private final Text messageText;
 
-   public LevelStorageException(Component p_230805_) {
-      super(p_230805_.getString());
-      this.messageComponent = p_230805_;
-   }
+    public LevelStorageException(Text messageText) {
+        super(messageText.getString());
+        this.messageText = messageText;
+    }
 
-   public Component getMessageComponent() {
-      return this.messageComponent;
-   }
+    public Text getMessageText() {
+        return this.messageText;
+    }
 }
+

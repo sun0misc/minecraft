@@ -1,48 +1,72 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraft.util.Mth;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.ParticleTextureSheet;
+import net.minecraft.client.particle.SpriteBillboardParticle;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
+import net.minecraft.util.math.MathHelper;
 
-@OnlyIn(Dist.CLIENT)
-public class NoteParticle extends TextureSheetParticle {
-   NoteParticle(ClientLevel p_107167_, double p_107168_, double p_107169_, double p_107170_, double p_107171_) {
-      super(p_107167_, p_107168_, p_107169_, p_107170_, 0.0D, 0.0D, 0.0D);
-      this.friction = 0.66F;
-      this.speedUpWhenYMotionIsBlocked = true;
-      this.xd *= (double)0.01F;
-      this.yd *= (double)0.01F;
-      this.zd *= (double)0.01F;
-      this.yd += 0.2D;
-      this.rCol = Math.max(0.0F, Mth.sin(((float)p_107171_ + 0.0F) * ((float)Math.PI * 2F)) * 0.65F + 0.35F);
-      this.gCol = Math.max(0.0F, Mth.sin(((float)p_107171_ + 0.33333334F) * ((float)Math.PI * 2F)) * 0.65F + 0.35F);
-      this.bCol = Math.max(0.0F, Mth.sin(((float)p_107171_ + 0.6666667F) * ((float)Math.PI * 2F)) * 0.65F + 0.35F);
-      this.quadSize *= 1.5F;
-      this.lifetime = 6;
-   }
+@Environment(value=EnvType.CLIENT)
+public class NoteParticle
+extends SpriteBillboardParticle {
+    NoteParticle(ClientWorld world, double x, double y, double z, double g) {
+        super(world, x, y, z, 0.0, 0.0, 0.0);
+        this.velocityMultiplier = 0.66f;
+        this.ascending = true;
+        this.velocityX *= (double)0.01f;
+        this.velocityY *= (double)0.01f;
+        this.velocityZ *= (double)0.01f;
+        this.velocityY += 0.2;
+        this.red = Math.max(0.0f, MathHelper.sin(((float)g + 0.0f) * ((float)Math.PI * 2)) * 0.65f + 0.35f);
+        this.green = Math.max(0.0f, MathHelper.sin(((float)g + 0.33333334f) * ((float)Math.PI * 2)) * 0.65f + 0.35f);
+        this.blue = Math.max(0.0f, MathHelper.sin(((float)g + 0.6666667f) * ((float)Math.PI * 2)) * 0.65f + 0.35f);
+        this.scale *= 1.5f;
+        this.maxAge = 6;
+    }
 
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.PARTICLE_SHEET_OPAQUE;
-   }
+    @Override
+    public ParticleTextureSheet getType() {
+        return ParticleTextureSheet.PARTICLE_SHEET_OPAQUE;
+    }
 
-   public float getQuadSize(float p_107182_) {
-      return this.quadSize * Mth.clamp(((float)this.age + p_107182_) / (float)this.lifetime * 32.0F, 0.0F, 1.0F);
-   }
+    @Override
+    public float getSize(float tickDelta) {
+        return this.scale * MathHelper.clamp(((float)this.age + tickDelta) / (float)this.maxAge * 32.0f, 0.0f, 1.0f);
+    }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class Provider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprite;
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      public Provider(SpriteSet p_107185_) {
-         this.sprite = p_107185_;
-      }
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Particle createParticle(SimpleParticleType p_107196_, ClientLevel p_107197_, double p_107198_, double p_107199_, double p_107200_, double p_107201_, double p_107202_, double p_107203_) {
-         NoteParticle noteparticle = new NoteParticle(p_107197_, p_107198_, p_107199_, p_107200_, p_107201_);
-         noteparticle.pickSprite(this.sprite);
-         return noteparticle;
-      }
-   }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            NoteParticle lv = new NoteParticle(arg2, d, e, f, g);
+            lv.setSprite(this.spriteProvider);
+            return lv;
+        }
+
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

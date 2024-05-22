@@ -1,26 +1,47 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.AscendingParticle;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
 
-@OnlyIn(Dist.CLIENT)
-public class AshParticle extends BaseAshSmokeParticle {
-   protected AshParticle(ClientLevel p_105514_, double p_105515_, double p_105516_, double p_105517_, double p_105518_, double p_105519_, double p_105520_, float p_105521_, SpriteSet p_105522_) {
-      super(p_105514_, p_105515_, p_105516_, p_105517_, 0.1F, -0.1F, 0.1F, p_105518_, p_105519_, p_105520_, p_105521_, p_105522_, 0.5F, 20, 0.1F, false);
-   }
+@Environment(value=EnvType.CLIENT)
+public class AshParticle
+extends AscendingParticle {
+    protected AshParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, float scaleMultiplier, SpriteProvider spriteProvider) {
+        super(world, x, y, z, 0.1f, -0.1f, 0.1f, velocityX, velocityY, velocityZ, scaleMultiplier, spriteProvider, 0.5f, 20, 0.1f, false);
+    }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class Provider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprites;
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      public Provider(SpriteSet p_105525_) {
-         this.sprites = p_105525_;
-      }
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Particle createParticle(SimpleParticleType p_105536_, ClientLevel p_105537_, double p_105538_, double p_105539_, double p_105540_, double p_105541_, double p_105542_, double p_105543_) {
-         return new AshParticle(p_105537_, p_105538_, p_105539_, p_105540_, 0.0D, 0.0D, 0.0D, 1.0F, this.sprites);
-      }
-   }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            return new AshParticle(arg2, d, e, f, 0.0, 0.0, 0.0, 1.0f, this.spriteProvider);
+        }
+
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

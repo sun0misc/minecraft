@@ -1,109 +1,102 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import java.util.function.Consumer;
-import net.minecraft.client.Camera;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.ShriekParticleOption;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.ParticleTextureSheet;
+import net.minecraft.client.particle.SpriteBillboardParticle;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.ShriekParticleEffect;
+import net.minecraft.util.math.MathHelper;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
-@OnlyIn(Dist.CLIENT)
-public class ShriekParticle extends TextureSheetParticle {
-   private static final Vector3f ROTATION_VECTOR = (new Vector3f(0.5F, 0.5F, 0.5F)).normalize();
-   private static final Vector3f TRANSFORM_VECTOR = new Vector3f(-1.0F, -1.0F, 0.0F);
-   private static final float MAGICAL_X_ROT = 1.0472F;
-   private int delay;
+@Environment(value=EnvType.CLIENT)
+public class ShriekParticle
+extends SpriteBillboardParticle {
+    private static final float X_ROTATION = 1.0472f;
+    private int delay;
 
-   ShriekParticle(ClientLevel p_233976_, double p_233977_, double p_233978_, double p_233979_, int p_233980_) {
-      super(p_233976_, p_233977_, p_233978_, p_233979_, 0.0D, 0.0D, 0.0D);
-      this.quadSize = 0.85F;
-      this.delay = p_233980_;
-      this.lifetime = 30;
-      this.gravity = 0.0F;
-      this.xd = 0.0D;
-      this.yd = 0.1D;
-      this.zd = 0.0D;
-   }
+    ShriekParticle(ClientWorld world, double x, double y, double z, int delay) {
+        super(world, x, y, z, 0.0, 0.0, 0.0);
+        this.scale = 0.85f;
+        this.delay = delay;
+        this.maxAge = 30;
+        this.gravityStrength = 0.0f;
+        this.velocityX = 0.0;
+        this.velocityY = 0.1;
+        this.velocityZ = 0.0;
+    }
 
-   public float getQuadSize(float p_234003_) {
-      return this.quadSize * Mth.clamp(((float)this.age + p_234003_) / (float)this.lifetime * 0.75F, 0.0F, 1.0F);
-   }
+    @Override
+    public float getSize(float tickDelta) {
+        return this.scale * MathHelper.clamp(((float)this.age + tickDelta) / (float)this.maxAge * 0.75f, 0.0f, 1.0f);
+    }
 
-   public void render(VertexConsumer p_233985_, Camera p_233986_, float p_233987_) {
-      if (this.delay <= 0) {
-         this.alpha = 1.0F - Mth.clamp(((float)this.age + p_233987_) / (float)this.lifetime, 0.0F, 1.0F);
-         this.renderRotatedParticle(p_233985_, p_233986_, p_233987_, (p_253347_) -> {
-            p_253347_.mul((new Quaternionf()).rotationX(-1.0472F));
-         });
-         this.renderRotatedParticle(p_233985_, p_233986_, p_233987_, (p_253346_) -> {
-            p_253346_.mul((new Quaternionf()).rotationYXZ(-(float)Math.PI, 1.0472F, 0.0F));
-         });
-      }
-   }
+    @Override
+    public void buildGeometry(VertexConsumer vertexConsumer, Camera camera, float tickDelta) {
+        if (this.delay > 0) {
+            return;
+        }
+        this.alpha = 1.0f - MathHelper.clamp(((float)this.age + tickDelta) / (float)this.maxAge, 0.0f, 1.0f);
+        Quaternionf quaternionf = new Quaternionf();
+        quaternionf.rotationX(-1.0472f);
+        this.method_60373(vertexConsumer, camera, quaternionf, tickDelta);
+        quaternionf.rotationYXZ((float)(-Math.PI), 1.0472f, 0.0f);
+        this.method_60373(vertexConsumer, camera, quaternionf, tickDelta);
+    }
 
-   private void renderRotatedParticle(VertexConsumer p_233989_, Camera p_233990_, float p_233991_, Consumer<Quaternionf> p_233992_) {
-      Vec3 vec3 = p_233990_.getPosition();
-      float f = (float)(Mth.lerp((double)p_233991_, this.xo, this.x) - vec3.x());
-      float f1 = (float)(Mth.lerp((double)p_233991_, this.yo, this.y) - vec3.y());
-      float f2 = (float)(Mth.lerp((double)p_233991_, this.zo, this.z) - vec3.z());
-      Quaternionf quaternionf = (new Quaternionf()).setAngleAxis(0.0F, ROTATION_VECTOR.x(), ROTATION_VECTOR.y(), ROTATION_VECTOR.z());
-      p_233992_.accept(quaternionf);
-      quaternionf.transform(TRANSFORM_VECTOR);
-      Vector3f[] avector3f = new Vector3f[]{new Vector3f(-1.0F, -1.0F, 0.0F), new Vector3f(-1.0F, 1.0F, 0.0F), new Vector3f(1.0F, 1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F)};
-      float f3 = this.getQuadSize(p_233991_);
+    @Override
+    public int getBrightness(float tint) {
+        return 240;
+    }
 
-      for(int i = 0; i < 4; ++i) {
-         Vector3f vector3f = avector3f[i];
-         vector3f.rotate(quaternionf);
-         vector3f.mul(f3);
-         vector3f.add(f, f1, f2);
-      }
+    @Override
+    public ParticleTextureSheet getType() {
+        return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+    }
 
-      int j = this.getLightColor(p_233991_);
-      this.makeCornerVertex(p_233989_, avector3f[0], this.getU1(), this.getV1(), j);
-      this.makeCornerVertex(p_233989_, avector3f[1], this.getU1(), this.getV0(), j);
-      this.makeCornerVertex(p_233989_, avector3f[2], this.getU0(), this.getV0(), j);
-      this.makeCornerVertex(p_233989_, avector3f[3], this.getU0(), this.getV1(), j);
-   }
+    @Override
+    public void tick() {
+        if (this.delay > 0) {
+            --this.delay;
+            return;
+        }
+        super.tick();
+    }
 
-   private void makeCornerVertex(VertexConsumer p_254493_, Vector3f p_253752_, float p_254250_, float p_254047_, int p_253814_) {
-      p_254493_.vertex((double)p_253752_.x(), (double)p_253752_.y(), (double)p_253752_.z()).uv(p_254250_, p_254047_).color(this.rCol, this.gCol, this.bCol, this.alpha).uv2(p_253814_).endVertex();
-   }
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<ShriekParticleEffect> {
+        private final SpriteProvider spriteProvider;
 
-   public int getLightColor(float p_233983_) {
-      return 240;
-   }
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
-   }
+        @Override
+        public Particle createParticle(ShriekParticleEffect arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            ShriekParticle lv = new ShriekParticle(arg2, d, e, f, arg.getDelay());
+            lv.setSprite(this.spriteProvider);
+            lv.setAlpha(1.0f);
+            return lv;
+        }
 
-   public void tick() {
-      if (this.delay > 0) {
-         --this.delay;
-      } else {
-         super.tick();
-      }
-   }
-
-   @OnlyIn(Dist.CLIENT)
-   public static class Provider implements ParticleProvider<ShriekParticleOption> {
-      private final SpriteSet sprite;
-
-      public Provider(SpriteSet p_234008_) {
-         this.sprite = p_234008_;
-      }
-
-      public Particle createParticle(ShriekParticleOption p_234019_, ClientLevel p_234020_, double p_234021_, double p_234022_, double p_234023_, double p_234024_, double p_234025_, double p_234026_) {
-         ShriekParticle shriekparticle = new ShriekParticle(p_234020_, p_234021_, p_234022_, p_234023_, p_234019_.getDelay());
-         shriekparticle.pickSprite(this.sprite);
-         shriekparticle.setAlpha(1.0F);
-         return shriekparticle;
-      }
-   }
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((ShriekParticleEffect)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

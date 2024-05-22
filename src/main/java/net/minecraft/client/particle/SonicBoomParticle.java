@@ -1,29 +1,50 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.ExplosionLargeParticle;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
 
-@OnlyIn(Dist.CLIENT)
-public class SonicBoomParticle extends HugeExplosionParticle {
-   protected SonicBoomParticle(ClientLevel p_234028_, double p_234029_, double p_234030_, double p_234031_, double p_234032_, SpriteSet p_234033_) {
-      super(p_234028_, p_234029_, p_234030_, p_234031_, p_234032_, p_234033_);
-      this.lifetime = 16;
-      this.quadSize = 1.5F;
-      this.setSpriteFromAge(p_234033_);
-   }
+@Environment(value=EnvType.CLIENT)
+public class SonicBoomParticle
+extends ExplosionLargeParticle {
+    protected SonicBoomParticle(ClientWorld arg, double d, double e, double f, double g, SpriteProvider arg2) {
+        super(arg, d, e, f, g, arg2);
+        this.maxAge = 16;
+        this.scale = 1.5f;
+        this.setSpriteForAge(arg2);
+    }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class Provider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprites;
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      public Provider(SpriteSet p_234036_) {
-         this.sprites = p_234036_;
-      }
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Particle createParticle(SimpleParticleType p_234047_, ClientLevel p_234048_, double p_234049_, double p_234050_, double p_234051_, double p_234052_, double p_234053_, double p_234054_) {
-         return new SonicBoomParticle(p_234048_, p_234049_, p_234050_, p_234051_, p_234052_, this.sprites);
-      }
-   }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            return new SonicBoomParticle(arg2, d, e, f, g, this.spriteProvider);
+        }
+
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

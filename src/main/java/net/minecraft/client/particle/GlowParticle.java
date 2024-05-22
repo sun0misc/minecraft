@@ -1,159 +1,207 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.ParticleTextureSheet;
+import net.minecraft.client.particle.SpriteBillboardParticle;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.random.Random;
 
-@OnlyIn(Dist.CLIENT)
-public class GlowParticle extends TextureSheetParticle {
-   static final RandomSource RANDOM = RandomSource.create();
-   private final SpriteSet sprites;
+@Environment(value=EnvType.CLIENT)
+public class GlowParticle
+extends SpriteBillboardParticle {
+    static final Random RANDOM = Random.create();
+    private final SpriteProvider spriteProvider;
 
-   GlowParticle(ClientLevel p_172136_, double p_172137_, double p_172138_, double p_172139_, double p_172140_, double p_172141_, double p_172142_, SpriteSet p_172143_) {
-      super(p_172136_, p_172137_, p_172138_, p_172139_, p_172140_, p_172141_, p_172142_);
-      this.friction = 0.96F;
-      this.speedUpWhenYMotionIsBlocked = true;
-      this.sprites = p_172143_;
-      this.quadSize *= 0.75F;
-      this.hasPhysics = false;
-      this.setSpriteFromAge(p_172143_);
-   }
+    GlowParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, SpriteProvider spriteProvider) {
+        super(world, x, y, z, velocityX, velocityY, velocityZ);
+        this.velocityMultiplier = 0.96f;
+        this.ascending = true;
+        this.spriteProvider = spriteProvider;
+        this.scale *= 0.75f;
+        this.collidesWithWorld = false;
+        this.setSpriteForAge(spriteProvider);
+    }
 
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
-   }
+    @Override
+    public ParticleTextureSheet getType() {
+        return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+    }
 
-   public int getLightColor(float p_172146_) {
-      float f = ((float)this.age + p_172146_) / (float)this.lifetime;
-      f = Mth.clamp(f, 0.0F, 1.0F);
-      int i = super.getLightColor(p_172146_);
-      int j = i & 255;
-      int k = i >> 16 & 255;
-      j += (int)(f * 15.0F * 16.0F);
-      if (j > 240) {
-         j = 240;
-      }
+    @Override
+    public int getBrightness(float tint) {
+        float g = ((float)this.age + tint) / (float)this.maxAge;
+        g = MathHelper.clamp(g, 0.0f, 1.0f);
+        int i = super.getBrightness(tint);
+        int j = i & 0xFF;
+        int k = i >> 16 & 0xFF;
+        if ((j += (int)(g * 15.0f * 16.0f)) > 240) {
+            j = 240;
+        }
+        return j | k << 16;
+    }
 
-      return j | k << 16;
-   }
+    @Override
+    public void tick() {
+        super.tick();
+        this.setSpriteForAge(this.spriteProvider);
+    }
 
-   public void tick() {
-      super.tick();
-      this.setSpriteFromAge(this.sprites);
-   }
+    @Environment(value=EnvType.CLIENT)
+    public static class ScrapeFactory
+    implements ParticleFactory<SimpleParticleType> {
+        private final double velocityMultiplier = 0.01;
+        private final SpriteProvider spriteProvider;
 
-   @OnlyIn(Dist.CLIENT)
-   public static class ElectricSparkProvider implements ParticleProvider<SimpleParticleType> {
-      private final double SPEED_FACTOR = 0.25D;
-      private final SpriteSet sprite;
+        public ScrapeFactory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public ElectricSparkProvider(SpriteSet p_172151_) {
-         this.sprite = p_172151_;
-      }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            GlowParticle lv = new GlowParticle(arg2, d, e, f, 0.0, 0.0, 0.0, this.spriteProvider);
+            if (arg2.random.nextBoolean()) {
+                lv.setColor(0.29f, 0.58f, 0.51f);
+            } else {
+                lv.setColor(0.43f, 0.77f, 0.62f);
+            }
+            lv.setVelocity(g * 0.01, h * 0.01, i * 0.01);
+            int j = 10;
+            int k = 40;
+            lv.setMaxAge(arg2.random.nextInt(30) + 10);
+            return lv;
+        }
 
-      public Particle createParticle(SimpleParticleType p_172162_, ClientLevel p_172163_, double p_172164_, double p_172165_, double p_172166_, double p_172167_, double p_172168_, double p_172169_) {
-         GlowParticle glowparticle = new GlowParticle(p_172163_, p_172164_, p_172165_, p_172166_, 0.0D, 0.0D, 0.0D, this.sprite);
-         glowparticle.setColor(1.0F, 0.9F, 1.0F);
-         glowparticle.setParticleSpeed(p_172167_ * 0.25D, p_172168_ * 0.25D, p_172169_ * 0.25D);
-         int i = 2;
-         int j = 4;
-         glowparticle.setLifetime(p_172163_.random.nextInt(2) + 2);
-         return glowparticle;
-      }
-   }
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class GlowSquidProvider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprite;
+    @Environment(value=EnvType.CLIENT)
+    public static class ElectricSparkFactory
+    implements ParticleFactory<SimpleParticleType> {
+        private final double velocityMultiplier = 0.25;
+        private final SpriteProvider spriteProvider;
 
-      public GlowSquidProvider(SpriteSet p_172172_) {
-         this.sprite = p_172172_;
-      }
+        public ElectricSparkFactory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Particle createParticle(SimpleParticleType p_172183_, ClientLevel p_172184_, double p_172185_, double p_172186_, double p_172187_, double p_172188_, double p_172189_, double p_172190_) {
-         GlowParticle glowparticle = new GlowParticle(p_172184_, p_172185_, p_172186_, p_172187_, 0.5D - GlowParticle.RANDOM.nextDouble(), p_172189_, 0.5D - GlowParticle.RANDOM.nextDouble(), this.sprite);
-         if (p_172184_.random.nextBoolean()) {
-            glowparticle.setColor(0.6F, 1.0F, 0.8F);
-         } else {
-            glowparticle.setColor(0.08F, 0.4F, 0.4F);
-         }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            GlowParticle lv = new GlowParticle(arg2, d, e, f, 0.0, 0.0, 0.0, this.spriteProvider);
+            lv.setColor(1.0f, 0.9f, 1.0f);
+            lv.setVelocity(g * 0.25, h * 0.25, i * 0.25);
+            int j = 2;
+            int k = 4;
+            lv.setMaxAge(arg2.random.nextInt(2) + 2);
+            return lv;
+        }
 
-         glowparticle.yd *= (double)0.2F;
-         if (p_172188_ == 0.0D && p_172190_ == 0.0D) {
-            glowparticle.xd *= (double)0.1F;
-            glowparticle.zd *= (double)0.1F;
-         }
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 
-         glowparticle.setLifetime((int)(8.0D / (p_172184_.random.nextDouble() * 0.8D + 0.2D)));
-         return glowparticle;
-      }
-   }
+    @Environment(value=EnvType.CLIENT)
+    public static class WaxOffFactory
+    implements ParticleFactory<SimpleParticleType> {
+        private final double velocityMultiplier = 0.01;
+        private final SpriteProvider spriteProvider;
 
-   @OnlyIn(Dist.CLIENT)
-   public static class ScrapeProvider implements ParticleProvider<SimpleParticleType> {
-      private final double SPEED_FACTOR = 0.01D;
-      private final SpriteSet sprite;
+        public WaxOffFactory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public ScrapeProvider(SpriteSet p_172194_) {
-         this.sprite = p_172194_;
-      }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            GlowParticle lv = new GlowParticle(arg2, d, e, f, 0.0, 0.0, 0.0, this.spriteProvider);
+            lv.setColor(1.0f, 0.9f, 1.0f);
+            lv.setVelocity(g * 0.01 / 2.0, h * 0.01, i * 0.01 / 2.0);
+            int j = 10;
+            int k = 40;
+            lv.setMaxAge(arg2.random.nextInt(30) + 10);
+            return lv;
+        }
 
-      public Particle createParticle(SimpleParticleType p_172205_, ClientLevel p_172206_, double p_172207_, double p_172208_, double p_172209_, double p_172210_, double p_172211_, double p_172212_) {
-         GlowParticle glowparticle = new GlowParticle(p_172206_, p_172207_, p_172208_, p_172209_, 0.0D, 0.0D, 0.0D, this.sprite);
-         if (p_172206_.random.nextBoolean()) {
-            glowparticle.setColor(0.29F, 0.58F, 0.51F);
-         } else {
-            glowparticle.setColor(0.43F, 0.77F, 0.62F);
-         }
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 
-         glowparticle.setParticleSpeed(p_172210_ * 0.01D, p_172211_ * 0.01D, p_172212_ * 0.01D);
-         int i = 10;
-         int j = 40;
-         glowparticle.setLifetime(p_172206_.random.nextInt(30) + 10);
-         return glowparticle;
-      }
-   }
+    @Environment(value=EnvType.CLIENT)
+    public static class WaxOnFactory
+    implements ParticleFactory<SimpleParticleType> {
+        private final double velocityMultiplier = 0.01;
+        private final SpriteProvider spriteProvider;
 
-   @OnlyIn(Dist.CLIENT)
-   public static class WaxOffProvider implements ParticleProvider<SimpleParticleType> {
-      private final double SPEED_FACTOR = 0.01D;
-      private final SpriteSet sprite;
+        public WaxOnFactory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public WaxOffProvider(SpriteSet p_172216_) {
-         this.sprite = p_172216_;
-      }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            GlowParticle lv = new GlowParticle(arg2, d, e, f, 0.0, 0.0, 0.0, this.spriteProvider);
+            lv.setColor(0.91f, 0.55f, 0.08f);
+            lv.setVelocity(g * 0.01 / 2.0, h * 0.01, i * 0.01 / 2.0);
+            int j = 10;
+            int k = 40;
+            lv.setMaxAge(arg2.random.nextInt(30) + 10);
+            return lv;
+        }
 
-      public Particle createParticle(SimpleParticleType p_172227_, ClientLevel p_172228_, double p_172229_, double p_172230_, double p_172231_, double p_172232_, double p_172233_, double p_172234_) {
-         GlowParticle glowparticle = new GlowParticle(p_172228_, p_172229_, p_172230_, p_172231_, 0.0D, 0.0D, 0.0D, this.sprite);
-         glowparticle.setColor(1.0F, 0.9F, 1.0F);
-         glowparticle.setParticleSpeed(p_172232_ * 0.01D / 2.0D, p_172233_ * 0.01D, p_172234_ * 0.01D / 2.0D);
-         int i = 10;
-         int j = 40;
-         glowparticle.setLifetime(p_172228_.random.nextInt(30) + 10);
-         return glowparticle;
-      }
-   }
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class WaxOnProvider implements ParticleProvider<SimpleParticleType> {
-      private final double SPEED_FACTOR = 0.01D;
-      private final SpriteSet sprite;
+    @Environment(value=EnvType.CLIENT)
+    public static class GlowFactory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      public WaxOnProvider(SpriteSet p_172238_) {
-         this.sprite = p_172238_;
-      }
+        public GlowFactory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Particle createParticle(SimpleParticleType p_172249_, ClientLevel p_172250_, double p_172251_, double p_172252_, double p_172253_, double p_172254_, double p_172255_, double p_172256_) {
-         GlowParticle glowparticle = new GlowParticle(p_172250_, p_172251_, p_172252_, p_172253_, 0.0D, 0.0D, 0.0D, this.sprite);
-         glowparticle.setColor(0.91F, 0.55F, 0.08F);
-         glowparticle.setParticleSpeed(p_172254_ * 0.01D / 2.0D, p_172255_ * 0.01D, p_172256_ * 0.01D / 2.0D);
-         int i = 10;
-         int j = 40;
-         glowparticle.setLifetime(p_172250_.random.nextInt(30) + 10);
-         return glowparticle;
-      }
-   }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            GlowParticle lv = new GlowParticle(arg2, d, e, f, 0.5 - RANDOM.nextDouble(), h, 0.5 - RANDOM.nextDouble(), this.spriteProvider);
+            if (arg2.random.nextBoolean()) {
+                lv.setColor(0.6f, 1.0f, 0.8f);
+            } else {
+                lv.setColor(0.08f, 0.4f, 0.4f);
+            }
+            lv.velocityY *= (double)0.2f;
+            if (g == 0.0 && i == 0.0) {
+                lv.velocityX *= (double)0.1f;
+                lv.velocityZ *= (double)0.1f;
+            }
+            lv.setMaxAge((int)(8.0 / (arg2.random.nextDouble() * 0.8 + 0.2)));
+            return lv;
+        }
+
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

@@ -1,63 +1,98 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.AbstractSlowingParticle;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.ParticleTextureSheet;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
 
-@OnlyIn(Dist.CLIENT)
-public class SoulParticle extends RisingParticle {
-   private final SpriteSet sprites;
-   protected boolean isGlowing;
+@Environment(value=EnvType.CLIENT)
+public class SoulParticle
+extends AbstractSlowingParticle {
+    private final SpriteProvider spriteProvider;
+    protected boolean sculk;
 
-   SoulParticle(ClientLevel p_107717_, double p_107718_, double p_107719_, double p_107720_, double p_107721_, double p_107722_, double p_107723_, SpriteSet p_107724_) {
-      super(p_107717_, p_107718_, p_107719_, p_107720_, p_107721_, p_107722_, p_107723_);
-      this.sprites = p_107724_;
-      this.scale(1.5F);
-      this.setSpriteFromAge(p_107724_);
-   }
+    SoulParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, SpriteProvider spriteProvider) {
+        super(world, x, y, z, velocityX, velocityY, velocityZ);
+        this.spriteProvider = spriteProvider;
+        this.scale(1.5f);
+        this.setSpriteForAge(spriteProvider);
+    }
 
-   public int getLightColor(float p_234080_) {
-      return this.isGlowing ? 240 : super.getLightColor(p_234080_);
-   }
+    @Override
+    public int getBrightness(float tint) {
+        if (this.sculk) {
+            return 240;
+        }
+        return super.getBrightness(tint);
+    }
 
-   public ParticleRenderType getRenderType() {
-      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
-   }
+    @Override
+    public ParticleTextureSheet getType() {
+        return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+    }
 
-   public void tick() {
-      super.tick();
-      this.setSpriteFromAge(this.sprites);
-   }
+    @Override
+    public void tick() {
+        super.tick();
+        this.setSpriteForAge(this.spriteProvider);
+    }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class EmissiveProvider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprite;
+    @Environment(value=EnvType.CLIENT)
+    public static class SculkSoulFactory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      public EmissiveProvider(SpriteSet p_234083_) {
-         this.sprite = p_234083_;
-      }
+        public SculkSoulFactory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Particle createParticle(SimpleParticleType p_234094_, ClientLevel p_234095_, double p_234096_, double p_234097_, double p_234098_, double p_234099_, double p_234100_, double p_234101_) {
-         SoulParticle soulparticle = new SoulParticle(p_234095_, p_234096_, p_234097_, p_234098_, p_234099_, p_234100_, p_234101_, this.sprite);
-         soulparticle.setAlpha(1.0F);
-         soulparticle.isGlowing = true;
-         return soulparticle;
-      }
-   }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            SoulParticle lv = new SoulParticle(arg2, d, e, f, g, h, i, this.spriteProvider);
+            lv.setAlpha(1.0f);
+            lv.sculk = true;
+            return lv;
+        }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class Provider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprite;
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 
-      public Provider(SpriteSet p_107739_) {
-         this.sprite = p_107739_;
-      }
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-      public Particle createParticle(SimpleParticleType p_107750_, ClientLevel p_107751_, double p_107752_, double p_107753_, double p_107754_, double p_107755_, double p_107756_, double p_107757_) {
-         SoulParticle soulparticle = new SoulParticle(p_107751_, p_107752_, p_107753_, p_107754_, p_107755_, p_107756_, p_107757_, this.sprite);
-         soulparticle.setAlpha(1.0F);
-         return soulparticle;
-      }
-   }
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
+
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            SoulParticle lv = new SoulParticle(arg2, d, e, f, g, h, i, this.spriteProvider);
+            lv.setAlpha(1.0f);
+            return lv;
+        }
+
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

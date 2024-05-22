@@ -1,66 +1,93 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.particle;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraft.util.FastColor;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.particle.AnimatedParticle;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleFactory;
+import net.minecraft.client.particle.SpriteProvider;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.SimpleParticleType;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ColorHelper;
 
-@OnlyIn(Dist.CLIENT)
-public class SquidInkParticle extends SimpleAnimatedParticle {
-   SquidInkParticle(ClientLevel p_172325_, double p_172326_, double p_172327_, double p_172328_, double p_172329_, double p_172330_, double p_172331_, int p_172332_, SpriteSet p_172333_) {
-      super(p_172325_, p_172326_, p_172327_, p_172328_, p_172333_, 0.0F);
-      this.friction = 0.92F;
-      this.quadSize = 0.5F;
-      this.setAlpha(1.0F);
-      this.setColor((float)FastColor.ARGB32.red(p_172332_), (float)FastColor.ARGB32.green(p_172332_), (float)FastColor.ARGB32.blue(p_172332_));
-      this.lifetime = (int)((double)(this.quadSize * 12.0F) / (Math.random() * (double)0.8F + (double)0.2F));
-      this.setSpriteFromAge(p_172333_);
-      this.hasPhysics = false;
-      this.xd = p_172329_;
-      this.yd = p_172330_;
-      this.zd = p_172331_;
-   }
+@Environment(value=EnvType.CLIENT)
+public class SquidInkParticle
+extends AnimatedParticle {
+    SquidInkParticle(ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ, int color, SpriteProvider spriteProvider) {
+        super(world, x, y, z, spriteProvider, 0.0f);
+        this.velocityMultiplier = 0.92f;
+        this.scale = 0.5f;
+        this.setAlpha(1.0f);
+        this.setColor(ColorHelper.Argb.getRed(color), ColorHelper.Argb.getGreen(color), ColorHelper.Argb.getBlue(color));
+        this.maxAge = (int)((double)(this.scale * 12.0f) / (Math.random() * (double)0.8f + (double)0.2f));
+        this.setSpriteForAge(spriteProvider);
+        this.collidesWithWorld = false;
+        this.velocityX = velocityX;
+        this.velocityY = velocityY;
+        this.velocityZ = velocityZ;
+    }
 
-   public void tick() {
-      super.tick();
-      if (!this.removed) {
-         this.setSpriteFromAge(this.sprites);
-         if (this.age > this.lifetime / 2) {
-            this.setAlpha(1.0F - ((float)this.age - (float)(this.lifetime / 2)) / (float)this.lifetime);
-         }
+    @Override
+    public void tick() {
+        super.tick();
+        if (!this.dead) {
+            this.setSpriteForAge(this.spriteProvider);
+            if (this.age > this.maxAge / 2) {
+                this.setAlpha(1.0f - ((float)this.age - (float)(this.maxAge / 2)) / (float)this.maxAge);
+            }
+            if (this.world.getBlockState(BlockPos.ofFloored(this.x, this.y, this.z)).isAir()) {
+                this.velocityY -= (double)0.0074f;
+            }
+        }
+    }
 
-         if (this.level.getBlockState(BlockPos.containing(this.x, this.y, this.z)).isAir()) {
-            this.yd -= (double)0.0074F;
-         }
-      }
+    @Environment(value=EnvType.CLIENT)
+    public static class GlowSquidInkFactory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-   }
+        public GlowSquidInkFactory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-   @OnlyIn(Dist.CLIENT)
-   public static class GlowInkProvider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprites;
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            return new SquidInkParticle(arg2, d, e, f, g, h, i, ColorHelper.Argb.getArgb(255, 204, 31, 102), this.spriteProvider);
+        }
 
-      public GlowInkProvider(SpriteSet p_172336_) {
-         this.sprites = p_172336_;
-      }
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 
-      public Particle createParticle(SimpleParticleType p_172347_, ClientLevel p_172348_, double p_172349_, double p_172350_, double p_172351_, double p_172352_, double p_172353_, double p_172354_) {
-         return new SquidInkParticle(p_172348_, p_172349_, p_172350_, p_172351_, p_172352_, p_172353_, p_172354_, FastColor.ARGB32.color(255, 204, 31, 102), this.sprites);
-      }
-   }
+    @Environment(value=EnvType.CLIENT)
+    public static class Factory
+    implements ParticleFactory<SimpleParticleType> {
+        private final SpriteProvider spriteProvider;
 
-   @OnlyIn(Dist.CLIENT)
-   public static class Provider implements ParticleProvider<SimpleParticleType> {
-      private final SpriteSet sprites;
+        public Factory(SpriteProvider spriteProvider) {
+            this.spriteProvider = spriteProvider;
+        }
 
-      public Provider(SpriteSet p_107991_) {
-         this.sprites = p_107991_;
-      }
+        @Override
+        public Particle createParticle(SimpleParticleType arg, ClientWorld arg2, double d, double e, double f, double g, double h, double i) {
+            return new SquidInkParticle(arg2, d, e, f, g, h, i, ColorHelper.Argb.getArgb(255, 255, 255, 255), this.spriteProvider);
+        }
 
-      public Particle createParticle(SimpleParticleType p_108002_, ClientLevel p_108003_, double p_108004_, double p_108005_, double p_108006_, double p_108007_, double p_108008_, double p_108009_) {
-         return new SquidInkParticle(p_108003_, p_108004_, p_108005_, p_108006_, p_108007_, p_108008_, p_108009_, FastColor.ARGB32.color(255, 255, 255, 255), this.sprites);
-      }
-   }
+        @Override
+        public /* synthetic */ Particle createParticle(ParticleEffect parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+            return this.createParticle((SimpleParticleType)parameters, world, x, y, z, velocityX, velocityY, velocityZ);
+        }
+    }
 }
+

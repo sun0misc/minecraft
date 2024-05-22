@@ -1,15 +1,19 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ */
 package net.minecraft.util;
 
-import net.minecraft.network.chat.Component;
+import net.minecraft.text.Text;
 
 public interface ProgressListener {
-   void progressStartNoAbort(Component p_14212_);
+    public void setTitle(Text var1);
 
-   void progressStart(Component p_14213_);
+    public void setTitleAndTask(Text var1);
 
-   void progressStage(Component p_14214_);
+    public void setTask(Text var1);
 
-   void progressStagePercentage(int p_14211_);
+    public void progressStagePercentage(int var1);
 
-   void stop();
+    public void setDone();
 }
+

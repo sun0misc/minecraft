@@ -1,105 +1,97 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.color.item;
 
+import it.unimi.dsi.fastutil.ints.IntList;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.client.color.block.BlockColors;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.IdMapper;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.DyeableLeatherItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.MapItem;
-import net.minecraft.world.item.SpawnEggItem;
-import net.minecraft.world.item.alchemy.PotionUtils;
-import net.minecraft.world.level.BlockAndTintGetter;
-import net.minecraft.world.level.FoliageColor;
-import net.minecraft.world.level.GrassColor;
-import net.minecraft.world.level.ItemLike;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.color.item.ItemColorProvider;
+import net.minecraft.client.color.world.FoliageColors;
+import net.minecraft.client.color.world.GrassColors;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.DyedColorComponent;
+import net.minecraft.component.type.FireworkExplosionComponent;
+import net.minecraft.component.type.MapColorComponent;
+import net.minecraft.component.type.PotionContentsComponent;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemConvertible;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.item.SpawnEggItem;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.collection.IdList;
+import net.minecraft.util.math.ColorHelper;
 
-@OnlyIn(Dist.CLIENT)
+@Environment(value=EnvType.CLIENT)
 public class ItemColors {
-   private static final int DEFAULT = -1;
-   private final IdMapper<ItemColor> itemColors = new IdMapper<>(32);
+    private static final int NO_COLOR = -1;
+    private final IdList<ItemColorProvider> providers = new IdList(32);
 
-   public static ItemColors createDefault(BlockColors p_92684_) {
-      ItemColors itemcolors = new ItemColors();
-      itemcolors.register((p_92708_, p_92709_) -> {
-         return p_92709_ > 0 ? -1 : ((DyeableLeatherItem)p_92708_.getItem()).getColor(p_92708_);
-      }, Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS, Items.LEATHER_HORSE_ARMOR);
-      itemcolors.register((p_92705_, p_92706_) -> {
-         return GrassColor.get(0.5D, 1.0D);
-      }, Blocks.TALL_GRASS, Blocks.LARGE_FERN);
-      itemcolors.register((p_92702_, p_92703_) -> {
-         if (p_92703_ != 1) {
-            return -1;
-         } else {
-            CompoundTag compoundtag = p_92702_.getTagElement("Explosion");
-            int[] aint = compoundtag != null && compoundtag.contains("Colors", 11) ? compoundtag.getIntArray("Colors") : null;
-            if (aint != null && aint.length != 0) {
-               if (aint.length == 1) {
-                  return aint[0];
-               } else {
-                  int i = 0;
-                  int j = 0;
-                  int k = 0;
-
-                  for(int l : aint) {
-                     i += (l & 16711680) >> 16;
-                     j += (l & '\uff00') >> 8;
-                     k += (l & 255) >> 0;
-                  }
-
-                  i /= aint.length;
-                  j /= aint.length;
-                  k /= aint.length;
-                  return i << 16 | j << 8 | k;
-               }
-            } else {
-               return 9079434;
+    public static ItemColors create(BlockColors blockColors) {
+        ItemColors lv = new ItemColors();
+        lv.register((stack, tintIndex) -> tintIndex > 0 ? -1 : DyedColorComponent.getColor(stack, -6265536), Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS, Items.LEATHER_HORSE_ARMOR);
+        lv.register((stack, tintIndex) -> tintIndex != 1 ? -1 : DyedColorComponent.getColor(stack, 0), Items.WOLF_ARMOR);
+        lv.register((stack, tintIndex) -> GrassColors.getColor(0.5, 1.0), Blocks.TALL_GRASS, Blocks.LARGE_FERN);
+        lv.register((stack, tintIndex) -> {
+            if (tintIndex != 1) {
+                return -1;
             }
-         }
-      }, Items.FIREWORK_STAR);
-      itemcolors.register((p_92699_, p_92700_) -> {
-         return p_92700_ > 0 ? -1 : PotionUtils.getColor(p_92699_);
-      }, Items.POTION, Items.SPLASH_POTION, Items.LINGERING_POTION);
+            FireworkExplosionComponent lv = stack.get(DataComponentTypes.FIREWORK_EXPLOSION);
+            IntList intList = lv != null ? lv.colors() : IntList.of();
+            int j = intList.size();
+            if (j == 0) {
+                return -7697782;
+            }
+            if (j == 1) {
+                return ColorHelper.Argb.fullAlpha(intList.getInt(0));
+            }
+            int k = 0;
+            int l = 0;
+            int m = 0;
+            for (int n = 0; n < j; ++n) {
+                int o = intList.getInt(n);
+                k += ColorHelper.Argb.getRed(o);
+                l += ColorHelper.Argb.getGreen(o);
+                m += ColorHelper.Argb.getBlue(o);
+            }
+            return ColorHelper.Argb.getArgb(k / j, l / j, m / j);
+        }, Items.FIREWORK_STAR);
+        lv.register((stack, tintIndex) -> {
+            if (tintIndex > 0) {
+                return -1;
+            }
+            return ColorHelper.Argb.fullAlpha(stack.getOrDefault(DataComponentTypes.POTION_CONTENTS, PotionContentsComponent.DEFAULT).getColor());
+        }, Items.POTION, Items.SPLASH_POTION, Items.LINGERING_POTION, Items.TIPPED_ARROW);
+        for (SpawnEggItem lv2 : SpawnEggItem.getAll()) {
+            lv.register((stack, tintIndex) -> ColorHelper.Argb.fullAlpha(lv2.getColor(tintIndex)), lv2);
+        }
+        lv.register((stack, tintIndex) -> {
+            BlockState lv = ((BlockItem)stack.getItem()).getBlock().getDefaultState();
+            return blockColors.getColor(lv, null, null, tintIndex);
+        }, Blocks.GRASS_BLOCK, Blocks.SHORT_GRASS, Blocks.FERN, Blocks.VINE, Blocks.OAK_LEAVES, Blocks.SPRUCE_LEAVES, Blocks.BIRCH_LEAVES, Blocks.JUNGLE_LEAVES, Blocks.ACACIA_LEAVES, Blocks.DARK_OAK_LEAVES, Blocks.LILY_PAD);
+        lv.register((stack, tintIndex) -> FoliageColors.getMangroveColor(), Blocks.MANGROVE_LEAVES);
+        lv.register((stack, tintIndex) -> tintIndex == 0 ? -1 : ColorHelper.Argb.fullAlpha(stack.getOrDefault(DataComponentTypes.MAP_COLOR, MapColorComponent.DEFAULT).rgb()), Items.FILLED_MAP);
+        return lv;
+    }
 
-      for(SpawnEggItem spawneggitem : SpawnEggItem.eggs()) {
-         itemcolors.register((p_92681_, p_92682_) -> {
-            return spawneggitem.getColor(p_92682_);
-         }, spawneggitem);
-      }
+    public int getColor(ItemStack item, int tintIndex) {
+        ItemColorProvider lv = this.providers.get(Registries.ITEM.getRawId(item.getItem()));
+        return lv == null ? -1 : lv.getColor(item, tintIndex);
+    }
 
-      itemcolors.register((p_92687_, p_92688_) -> {
-         BlockState blockstate = ((BlockItem)p_92687_.getItem()).getBlock().defaultBlockState();
-         return p_92684_.getColor(blockstate, (BlockAndTintGetter)null, (BlockPos)null, p_92688_);
-      }, Blocks.GRASS_BLOCK, Blocks.GRASS, Blocks.FERN, Blocks.VINE, Blocks.OAK_LEAVES, Blocks.SPRUCE_LEAVES, Blocks.BIRCH_LEAVES, Blocks.JUNGLE_LEAVES, Blocks.ACACIA_LEAVES, Blocks.DARK_OAK_LEAVES, Blocks.LILY_PAD);
-      itemcolors.register((p_92696_, p_92697_) -> {
-         return FoliageColor.getMangroveColor();
-      }, Blocks.MANGROVE_LEAVES);
-      itemcolors.register((p_92693_, p_92694_) -> {
-         return p_92694_ == 0 ? PotionUtils.getColor(p_92693_) : -1;
-      }, Items.TIPPED_ARROW);
-      itemcolors.register((p_232352_, p_232353_) -> {
-         return p_232353_ == 0 ? -1 : MapItem.getColor(p_232352_);
-      }, Items.FILLED_MAP);
-      return itemcolors;
-   }
-
-   public int getColor(ItemStack p_92677_, int p_92678_) {
-      ItemColor itemcolor = this.itemColors.byId(BuiltInRegistries.ITEM.getId(p_92677_.getItem()));
-      return itemcolor == null ? -1 : itemcolor.getColor(p_92677_, p_92678_);
-   }
-
-   public void register(ItemColor p_92690_, ItemLike... p_92691_) {
-      for(ItemLike itemlike : p_92691_) {
-         this.itemColors.addMapping(p_92690_, Item.getId(itemlike.asItem()));
-      }
-
-   }
+    public void register(ItemColorProvider provider, ItemConvertible ... items) {
+        for (ItemConvertible lv : items) {
+            this.providers.set(provider, Item.getRawId(lv.asItem()));
+        }
+    }
 }
+

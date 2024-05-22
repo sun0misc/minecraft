@@ -1,169 +1,171 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package com.mojang.blaze3d.platform;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
-import com.mojang.blaze3d.DontObfuscate;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.logging.LogUtils;
-import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import net.minecraft.client.renderer.GameRenderer;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.gl.GlDebug;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.Window;
+import net.minecraft.util.Colors;
+import net.minecraft.util.annotation.DeobfuscateClass;
 import org.lwjgl.Version;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWErrorCallbackI;
-import org.lwjgl.glfw.GLFWNativeGLX;
 import org.lwjgl.glfw.GLFWVidMode;
-import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.system.MemoryUtil;
 import org.slf4j.Logger;
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
 
-@OnlyIn(Dist.CLIENT)
-@DontObfuscate
+@Environment(value=EnvType.CLIENT)
+@DeobfuscateClass
 public class GLX {
-   private static final Logger LOGGER = LogUtils.getLogger();
-   private static String cpuInfo;
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static String cpuInfo;
 
-   public static String getOpenGLVersionString() {
-      RenderSystem.assertOnRenderThread();
-      return GLFW.glfwGetCurrentContext() == 0L ? "NO CONTEXT" : GlStateManager._getString(7937) + " GL version " + GlStateManager._getString(7938) + ", " + GlStateManager._getString(7936);
-   }
+    public static String getOpenGLVersionString() {
+        RenderSystem.assertOnRenderThread();
+        if (GLFW.glfwGetCurrentContext() == 0L) {
+            return "NO CONTEXT";
+        }
+        return GlStateManager._getString(GL11.GL_RENDERER) + " GL version " + GlStateManager._getString(GL11.GL_VERSION) + ", " + GlStateManager._getString(GL11.GL_VENDOR);
+    }
 
-   public static int _getRefreshRate(Window p_69342_) {
-      RenderSystem.assertOnRenderThread();
-      long i = GLFW.glfwGetWindowMonitor(p_69342_.getWindow());
-      if (i == 0L) {
-         i = GLFW.glfwGetPrimaryMonitor();
-      }
+    public static int _getRefreshRate(Window window) {
+        RenderSystem.assertOnRenderThread();
+        long l = GLFW.glfwGetWindowMonitor(window.getHandle());
+        if (l == 0L) {
+            l = GLFW.glfwGetPrimaryMonitor();
+        }
+        GLFWVidMode gLFWVidMode = l == 0L ? null : GLFW.glfwGetVideoMode(l);
+        return gLFWVidMode == null ? 0 : gLFWVidMode.refreshRate();
+    }
 
-      GLFWVidMode glfwvidmode = i == 0L ? null : GLFW.glfwGetVideoMode(i);
-      return glfwvidmode == null ? 0 : glfwvidmode.refreshRate();
-   }
+    public static String _getLWJGLVersion() {
+        return Version.getVersion();
+    }
 
-   public static String _getLWJGLVersion() {
-      RenderSystem.assertInInitPhase();
-      return Version.getVersion();
-   }
+    public static LongSupplier _initGlfw() {
+        LongSupplier longSupplier;
+        Window.acceptError((code, message) -> {
+            throw new IllegalStateException(String.format(Locale.ROOT, "GLFW error before init: [0x%X]%s", code, message));
+        });
+        ArrayList<String> list = Lists.newArrayList();
+        GLFWErrorCallback gLFWErrorCallback = GLFW.glfwSetErrorCallback((code, pointer) -> {
+            String string = pointer == 0L ? "" : MemoryUtil.memUTF8(pointer);
+            list.add(String.format(Locale.ROOT, "GLFW error during init: [0x%X]%s", code, string));
+        });
+        if (GLFW.glfwInit()) {
+            longSupplier = () -> (long)(GLFW.glfwGetTime() * 1.0E9);
+            for (String string : list) {
+                LOGGER.error("GLFW error collected during initialization: {}", (Object)string);
+            }
+        } else {
+            throw new IllegalStateException("Failed to initialize GLFW, errors: " + Joiner.on(",").join(list));
+        }
+        RenderSystem.setErrorCallback(gLFWErrorCallback);
+        return longSupplier;
+    }
 
-   public static LongSupplier _initGlfw() {
-      RenderSystem.assertInInitPhase();
-      GLFWNativeGLX.setPath(GL.getFunctionProvider());
-      Window.checkGlfwError((p_242032_, p_242033_) -> {
-         throw new IllegalStateException(String.format(Locale.ROOT, "GLFW error before init: [0x%X]%s", p_242032_, p_242033_));
-      });
-      List<String> list = Lists.newArrayList();
-      GLFWErrorCallback glfwerrorcallback = GLFW.glfwSetErrorCallback((p_69365_, p_69366_) -> {
-         list.add(String.format(Locale.ROOT, "GLFW error during init: [0x%X]%s", p_69365_, p_69366_));
-      });
-      if (!GLFW.glfwInit()) {
-         throw new IllegalStateException("Failed to initialize GLFW, errors: " + Joiner.on(",").join(list));
-      } else {
-         LongSupplier longsupplier = () -> {
-            return (long)(GLFW.glfwGetTime() * 1.0E9D);
-         };
+    public static void _setGlfwErrorCallback(GLFWErrorCallbackI callback) {
+        GLFWErrorCallback gLFWErrorCallback = GLFW.glfwSetErrorCallback(callback);
+        if (gLFWErrorCallback != null) {
+            gLFWErrorCallback.free();
+        }
+    }
 
-         for(String s : list) {
-            LOGGER.error("GLFW error collected during initialization: {}", (Object)s);
-         }
+    public static boolean _shouldClose(Window window) {
+        return GLFW.glfwWindowShouldClose(window.getHandle());
+    }
 
-         RenderSystem.setErrorCallback(glfwerrorcallback);
-         return longsupplier;
-      }
-   }
+    public static void _init(int debugVerbosity, boolean debugSync) {
+        try {
+            CentralProcessor centralProcessor = new SystemInfo().getHardware().getProcessor();
+            cpuInfo = String.format(Locale.ROOT, "%dx %s", centralProcessor.getLogicalProcessorCount(), centralProcessor.getProcessorIdentifier().getName()).replaceAll("\\s+", " ");
+        } catch (Throwable throwable) {
+            // empty catch block
+        }
+        GlDebug.enableDebug(debugVerbosity, debugSync);
+    }
 
-   public static void _setGlfwErrorCallback(GLFWErrorCallbackI p_69353_) {
-      RenderSystem.assertInInitPhase();
-      GLFWErrorCallback glfwerrorcallback = GLFW.glfwSetErrorCallback(p_69353_);
-      if (glfwerrorcallback != null) {
-         glfwerrorcallback.free();
-      }
+    public static String _getCpuInfo() {
+        return cpuInfo == null ? "<unknown>" : cpuInfo;
+    }
 
-   }
+    public static void _renderCrosshair(int size, boolean drawX, boolean drawY, boolean drawZ) {
+        if (!(drawX || drawY || drawZ)) {
+            return;
+        }
+        RenderSystem.assertOnRenderThread();
+        GlStateManager._depthMask(false);
+        GlStateManager._disableCull();
+        RenderSystem.setShader(GameRenderer::getRenderTypeLinesProgram);
+        Tessellator lv = RenderSystem.renderThreadTesselator();
+        BufferBuilder lv2 = lv.method_60827(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
+        RenderSystem.lineWidth(4.0f);
+        if (drawX) {
+            lv2.vertex(0.0f, 0.0f, 0.0f).color(Colors.BLACK).normal(1.0f, 0.0f, 0.0f);
+            lv2.vertex(size, 0.0f, 0.0f).color(Colors.BLACK).normal(1.0f, 0.0f, 0.0f);
+        }
+        if (drawY) {
+            lv2.vertex(0.0f, 0.0f, 0.0f).color(Colors.BLACK).normal(0.0f, 1.0f, 0.0f);
+            lv2.vertex(0.0f, size, 0.0f).color(Colors.BLACK).normal(0.0f, 1.0f, 0.0f);
+        }
+        if (drawZ) {
+            lv2.vertex(0.0f, 0.0f, 0.0f).color(Colors.BLACK).normal(0.0f, 0.0f, 1.0f);
+            lv2.vertex(0.0f, 0.0f, size).color(Colors.BLACK).normal(0.0f, 0.0f, 1.0f);
+        }
+        BufferRenderer.drawWithGlobalProgram(lv2.method_60800());
+        RenderSystem.lineWidth(2.0f);
+        lv2 = lv.method_60827(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
+        if (drawX) {
+            lv2.vertex(0.0f, 0.0f, 0.0f).color(Colors.RED).normal(1.0f, 0.0f, 0.0f);
+            lv2.vertex(size, 0.0f, 0.0f).color(Colors.RED).normal(1.0f, 0.0f, 0.0f);
+        }
+        if (drawY) {
+            lv2.vertex(0.0f, 0.0f, 0.0f).color(-16711936).normal(0.0f, 1.0f, 0.0f);
+            lv2.vertex(0.0f, size, 0.0f).color(-16711936).normal(0.0f, 1.0f, 0.0f);
+        }
+        if (drawZ) {
+            lv2.vertex(0.0f, 0.0f, 0.0f).color(-8421377).normal(0.0f, 0.0f, 1.0f);
+            lv2.vertex(0.0f, 0.0f, size).color(-8421377).normal(0.0f, 0.0f, 1.0f);
+        }
+        BufferRenderer.drawWithGlobalProgram(lv2.method_60800());
+        RenderSystem.lineWidth(1.0f);
+        GlStateManager._enableCull();
+        GlStateManager._depthMask(true);
+    }
 
-   public static boolean _shouldClose(Window p_69356_) {
-      return GLFW.glfwWindowShouldClose(p_69356_.getWindow());
-   }
+    public static <T> T make(Supplier<T> factory) {
+        return factory.get();
+    }
 
-   public static void _init(int p_69344_, boolean p_69345_) {
-      RenderSystem.assertInInitPhase();
-
-      try {
-         CentralProcessor centralprocessor = (new SystemInfo()).getHardware().getProcessor();
-         cpuInfo = String.format(Locale.ROOT, "%dx %s", centralprocessor.getLogicalProcessorCount(), centralprocessor.getProcessorIdentifier().getName()).replaceAll("\\s+", " ");
-      } catch (Throwable throwable) {
-      }
-
-      GlDebug.enableDebugCallback(p_69344_, p_69345_);
-   }
-
-   public static String _getCpuInfo() {
-      return cpuInfo == null ? "<unknown>" : cpuInfo;
-   }
-
-   public static void _renderCrosshair(int p_69348_, boolean p_69349_, boolean p_69350_, boolean p_69351_) {
-      RenderSystem.assertOnRenderThread();
-      GlStateManager._depthMask(false);
-      GlStateManager._disableCull();
-      RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
-      Tesselator tesselator = RenderSystem.renderThreadTesselator();
-      BufferBuilder bufferbuilder = tesselator.getBuilder();
-      RenderSystem.lineWidth(4.0F);
-      bufferbuilder.begin(VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
-      if (p_69349_) {
-         bufferbuilder.vertex(0.0D, 0.0D, 0.0D).color(0, 0, 0, 255).normal(1.0F, 0.0F, 0.0F).endVertex();
-         bufferbuilder.vertex((double)p_69348_, 0.0D, 0.0D).color(0, 0, 0, 255).normal(1.0F, 0.0F, 0.0F).endVertex();
-      }
-
-      if (p_69350_) {
-         bufferbuilder.vertex(0.0D, 0.0D, 0.0D).color(0, 0, 0, 255).normal(0.0F, 1.0F, 0.0F).endVertex();
-         bufferbuilder.vertex(0.0D, (double)p_69348_, 0.0D).color(0, 0, 0, 255).normal(0.0F, 1.0F, 0.0F).endVertex();
-      }
-
-      if (p_69351_) {
-         bufferbuilder.vertex(0.0D, 0.0D, 0.0D).color(0, 0, 0, 255).normal(0.0F, 0.0F, 1.0F).endVertex();
-         bufferbuilder.vertex(0.0D, 0.0D, (double)p_69348_).color(0, 0, 0, 255).normal(0.0F, 0.0F, 1.0F).endVertex();
-      }
-
-      tesselator.end();
-      RenderSystem.lineWidth(2.0F);
-      bufferbuilder.begin(VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
-      if (p_69349_) {
-         bufferbuilder.vertex(0.0D, 0.0D, 0.0D).color(255, 0, 0, 255).normal(1.0F, 0.0F, 0.0F).endVertex();
-         bufferbuilder.vertex((double)p_69348_, 0.0D, 0.0D).color(255, 0, 0, 255).normal(1.0F, 0.0F, 0.0F).endVertex();
-      }
-
-      if (p_69350_) {
-         bufferbuilder.vertex(0.0D, 0.0D, 0.0D).color(0, 255, 0, 255).normal(0.0F, 1.0F, 0.0F).endVertex();
-         bufferbuilder.vertex(0.0D, (double)p_69348_, 0.0D).color(0, 255, 0, 255).normal(0.0F, 1.0F, 0.0F).endVertex();
-      }
-
-      if (p_69351_) {
-         bufferbuilder.vertex(0.0D, 0.0D, 0.0D).color(127, 127, 255, 255).normal(0.0F, 0.0F, 1.0F).endVertex();
-         bufferbuilder.vertex(0.0D, 0.0D, (double)p_69348_).color(127, 127, 255, 255).normal(0.0F, 0.0F, 1.0F).endVertex();
-      }
-
-      tesselator.end();
-      RenderSystem.lineWidth(1.0F);
-      GlStateManager._enableCull();
-      GlStateManager._depthMask(true);
-   }
-
-   public static <T> T make(Supplier<T> p_69374_) {
-      return p_69374_.get();
-   }
-
-   public static <T> T make(T p_69371_, Consumer<T> p_69372_) {
-      p_69372_.accept(p_69371_);
-      return p_69371_;
-   }
+    public static <T> T make(T object, Consumer<T> initializer) {
+        initializer.accept(object);
+        return object;
+    }
 }
+

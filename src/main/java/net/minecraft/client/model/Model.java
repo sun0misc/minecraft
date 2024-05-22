@@ -1,24 +1,36 @@
+/*
+ * Decompiled with CFR 0.2.2 (FabricMC 7c48b8c4).
+ * 
+ * Could not load the following classes:
+ *  net.fabricmc.api.EnvType
+ *  net.fabricmc.api.Environment
+ */
 package net.minecraft.client.model;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.function.Function;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 
-@OnlyIn(Dist.CLIENT)
+@Environment(value=EnvType.CLIENT)
 public abstract class Model {
-   protected final Function<ResourceLocation, RenderType> renderType;
+    protected final Function<Identifier, RenderLayer> layerFactory;
 
-   public Model(Function<ResourceLocation, RenderType> p_103110_) {
-      this.renderType = p_103110_;
-   }
+    public Model(Function<Identifier, RenderLayer> layerFactory) {
+        this.layerFactory = layerFactory;
+    }
 
-   public final RenderType renderType(ResourceLocation p_103120_) {
-      return this.renderType.apply(p_103120_);
-   }
+    public final RenderLayer getLayer(Identifier texture) {
+        return this.layerFactory.apply(texture);
+    }
 
-   public abstract void renderToBuffer(PoseStack p_103111_, VertexConsumer p_103112_, int p_103113_, int p_103114_, float p_103115_, float p_103116_, float p_103117_, float p_103118_);
+    public abstract void render(MatrixStack var1, VertexConsumer var2, int var3, int var4, int var5);
+
+    public final void method_60879(MatrixStack arg, VertexConsumer arg2, int i, int j) {
+        this.render(arg, arg2, i, j, -1);
+    }
 }
+
